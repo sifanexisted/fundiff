@@ -5,8 +5,9 @@
 
 **Affiliation:** Yale University
 
-![FunDiff Pipeline](figures/pipeline.png)
+[//]: # (![FunDiff Pipeline]&#40;figures/pipline.png&#41;)
 
+[//]: # (<img src="figures/pipline.png" alt="FunDiff Pipeline" width="800" />)
 
 ## Installation
 
