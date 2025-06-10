@@ -16,10 +16,6 @@ def get_config(autoencoder_diffusion):
     config.diffusion = get_diffusion_config()
     return config
 
-
-
-
-
 def get_base_config():
     """Get the default hyperparameter configuration."""
     config = ml_collections.ConfigDict()
