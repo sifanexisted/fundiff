@@ -94,6 +94,11 @@ FunDiff/
 If you use FunDiff in your research, please cite:
 
 ```bibtex
-[Citation information to be added]
+@article{wang2025fundiff,
+  title={FunDiff: Diffusion Models over Function Spaces for Physics-Informed Generative Modeling},
+  author={Wang, Sifan and Dou, Zehao and Liu, Tong-Rui and Lu, Lu},
+  journal={arXiv preprint arXiv:2506.07902},
+  year={2025}
+}
 ```
 
