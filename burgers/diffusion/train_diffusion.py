@@ -28,8 +28,8 @@ from function_diffusion.utils.checkpoint_utils import (
     restore_fae_state
 )
 from function_diffusion.utils.data_utils import create_dataloader
-from burgers.data_utils import create_dataset
 
+from data_utils import create_dataset
 from model_utils import create_encoder_step
 
 
