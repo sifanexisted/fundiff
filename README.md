@@ -9,19 +9,24 @@
 
 [//]: # (<img src="figures/pipline.png" alt="FunDiff Pipeline" width="800" />)
 
+
+## Requirements
+
+This work is implemented using JAX and Flax. Please ensure you have the latest versions of these libraries installed.
+
 ## Installation
 
-To install the FunDiff package, clone the repository and install in development mode:
+To install the FunDiff package, clone the repository and install:
 
 ```bash
-git clone [repository-url]
+git clone https://github.com/sifanexisted/fundiff.git
 cd fundiff
 pip install -e .
 ```
 
 ## Dataset
 
-Training datasets are available for download at [dataset link](). Download and extract the datasets to the appropriate directory and change the data path accordinly in config files before training.
+Training datasets are available for download at [dataset link]()(coming soon). Download and extract the datasets to the appropriate directory and change the data path accordinly in config files before training.
 
 ## Training Pipeline
 
@@ -56,13 +61,8 @@ This stage trains the diffusion model to generate new samples in the learned lat
 
 ## Evaluation
 
-To evaluate the trained FunDiff model and generate new samples:
+To evaluate the trained FunDiff model and generate new samples, please check our jupyter notebook for each example.
 
-```bash
-python eval.py --config configs/diffusion.py:fae,dit
-```
-
-This command loads the trained models and generates samples according to the specified configuration.
 
 <!-- ## Configuration
 

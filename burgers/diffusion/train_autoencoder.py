@@ -5,7 +5,6 @@ import time
 import ml_collections
 import wandb
 
-
 import jax
 import jax.numpy as jnp
 from jax.experimental import mesh_utils, multihost_utils
@@ -24,10 +23,9 @@ from function_diffusion.utils.checkpoint_utils import (
     restore_checkpoint,
 )
 from function_diffusion.utils.data_utils import create_dataloader, BatchParser
-from burgers.data_utils import create_dataset
 
+from data_utils import create_dataset
 from model_utils import create_train_step, create_encoder_step, create_decoder_step, create_eval_step
-
 
 
 def train_and_evaluate(config: ml_collections.ConfigDict):
