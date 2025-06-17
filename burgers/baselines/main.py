@@ -22,10 +22,6 @@ def main(argv):
     if FLAGS.config.mode == "train":
         train.train_and_evaluate(FLAGS.config)
 
-    elif FLAGS.config.mode == "eval":
-        eval.evaluate(FLAGS.config)
-
-
 if __name__ == "__main__":
     flags.mark_flags_as_required(["config"])
     app.run(main)
