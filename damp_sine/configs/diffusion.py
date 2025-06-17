@@ -45,7 +45,7 @@ def get_base_config():
 
     # Dataset
     config.dataset = dataset = ml_collections.ConfigDict()
-    dataset.num_samples = 40000
+    dataset.num_samples = 1024   # It should be the same as used for training the FAE
     dataset.num_sensors = 128
     dataset.downsample_factor = 1
     dataset.train_batch_size = 256  # Per device
