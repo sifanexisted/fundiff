@@ -23,7 +23,7 @@ from function_diffusion.utils.checkpoint_utils import (
 from function_diffusion.utils.data_utils import create_dataloader
 from function_diffusion.utils.baseline_utils import create_eval_step
 
-from burgers.data_utils import create_dataset
+from data_utils import create_dataset
 
 def evaluate(config: ml_collections.ConfigDict):
     # Initialize model
