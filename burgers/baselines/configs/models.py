@@ -38,7 +38,6 @@ def get_fno_config():
     return config
 
 
-
 @_register
 def get_unet_config():
     config = ml_collections.ConfigDict()
