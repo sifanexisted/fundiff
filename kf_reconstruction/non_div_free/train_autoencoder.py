@@ -23,7 +23,7 @@ from function_diffusion.utils.checkpoint_utils import (
     restore_checkpoint,
 )
 from function_diffusion.utils.data_utils import create_dataloader, BatchParser
-from kf_reconstruction.data_utils import create_dataset
+from data_utils import create_dataset
 from model_utils import create_train_step, create_encoder_step, create_decoder_step, create_eval_step
 
 

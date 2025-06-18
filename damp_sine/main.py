@@ -4,8 +4,6 @@ from ml_collections import config_flags
 
 import train_autoencoder
 import train_diffusion
-import eval
-
 
 
 FLAGS = flags.FLAGS

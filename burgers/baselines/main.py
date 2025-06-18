@@ -6,7 +6,6 @@ import jax
 jax.config.update("jax_default_matmul_precision", "highest")
 
 import train
-import eval
 
 FLAGS = flags.FLAGS
 

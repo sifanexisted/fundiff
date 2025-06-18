@@ -7,7 +7,6 @@ jax.config.update("jax_default_matmul_precision", "highest")
 
 import train_autoencoder
 import train_diffusion
-import eval
 
 FLAGS = flags.FLAGS
 

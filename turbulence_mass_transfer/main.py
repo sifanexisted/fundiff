@@ -7,7 +7,6 @@ jax.config.update("jax_default_matmul_precision", "highest")
 
 import train_autoencoder
 import train_diffusion
-import eval
 
 FLAGS = flags.FLAGS
 
@@ -25,9 +24,6 @@ def main(argv):
 
     elif FLAGS.config.mode.startswith("train_diffusion"):
         train_diffusion.train_and_evaluate(FLAGS.config)
-
-    elif FLAGS.config.mode == "eval":
-        eval.evaluate(FLAGS.config)
 
 
 if __name__ == "__main__":
