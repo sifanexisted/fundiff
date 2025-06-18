@@ -24,7 +24,7 @@ from function_diffusion.utils.checkpoint_utils import (
 )
 from function_diffusion.utils.data_utils import create_dataloader, BatchParser
 
-from data_utils import create_dataset
+from burgers.data_utils import create_dataset
 from model_utils import create_train_step, create_encoder_step, create_decoder_step, create_eval_step
 
 

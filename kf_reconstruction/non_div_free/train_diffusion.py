@@ -28,7 +28,7 @@ from function_diffusion.utils.checkpoint_utils import (
     restore_fae_state
 )
 from function_diffusion.utils.data_utils import create_dataloader
-from data_utils import create_dataset
+from kf_reconstruction.data_utils import create_dataset
 from model_utils import create_encoder_step
 
 

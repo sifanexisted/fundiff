@@ -22,7 +22,8 @@ from function_diffusion.utils.checkpoint_utils import (
     save_checkpoint,
 )
 from function_diffusion.utils.data_utils import create_dataloader
-from data_utils import create_dataset, BatchParser
+
+from kf_generation.data_utils import create_dataset, BatchParser
 from model_utils import create_train_step
 
 

@@ -24,7 +24,7 @@ from function_diffusion.utils.checkpoint_utils import (
 from function_diffusion.utils.data_utils import create_dataloader
 from function_diffusion.utils.baseline_utils import create_train_step
 
-from data_utils import create_dataset
+from kf_reconstruction.data_utils import create_dataset
 
 
 def train_and_evaluate(config: ml_collections.ConfigDict):
