@@ -26,9 +26,6 @@ def main(argv):
     elif FLAGS.config.mode.startswith("train_diffusion"):
         train_diffusion.train_and_evaluate(FLAGS.config)
 
-    elif FLAGS.config.mode == "eval":
-        eval.evaluate(FLAGS.config)
-
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(["config"])
