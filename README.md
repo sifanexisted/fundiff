@@ -35,18 +35,18 @@ FunDiff employs a two-stage training procedure:
 1. **Training Function Autoencoder**: Maps functions to a latent representation 
 2. **Training Latent Diffusion Model**: Learns the diffusion process in the latent space via rectified flow
 
-### Example: Kolmogorov Flow Generation
+### Example: Burgers flow reconstruction
 
 Navigate to the Kolmogorov flow example directory:
 
 ```bash
-cd examples/kf_generation
+cd examples/burgers/diffusion
 ```
 
-#### Stage 1: Train Function Autoencoder
+#### Stage 1: Train Function Autoencoder with PDE constraints
 
 ```bash
-python train_autoencoder.py --config=configs/autoencoder.py:fae
+python main.py --config=configs/autoencoder.py:fae --config.training.use_pde=True
 ```
 
 This stage learns to encode physical functions into a compact latent representation while preserving essential structural information.
@@ -54,10 +54,25 @@ This stage learns to encode physical functions into a compact latent representat
 #### Stage 2: Train Latent Diffusion Model
 
 ```bash
-python train_diffusion.py --config=configs/diffusion.py:fae,dit
+python main.py --config=configs/diffusion.py:fae,dit
 ```
 
 This stage trains the diffusion model to generate new samples in the learned latent space.
+
+### Train other baselines
+
+Go to the `baselines` directory:
+
+```bash
+bash cd examples/burgers/baselines
+```
+
+Run the following commands to train other baselines (e.g. FNO, Unet, ViT): 
+
+```bash 
+python main.py --config=configs/base.py:fno
+```
+
 
 ## Evaluation
 
