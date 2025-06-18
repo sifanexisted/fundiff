@@ -67,6 +67,7 @@ def create_train_step(encoder, decoder, mesh):
         mesh=mesh,
         in_specs=(P(), P("batch")),
         out_specs=(P(), P()),
+        check_rep=False
     )
     def train_step(state, batch):
         grad_fn = jax.value_and_grad(partial(loss_fn, encoder, decoder), has_aux=False)
@@ -86,6 +87,7 @@ def create_encoder_step(encoder, mesh):
         mesh=mesh,
         in_specs=(P(), P("batch")),
         out_specs=P("batch"),
+        check_rep=False
     )
     def encoder_step(encoder_params, batch):
         _, x, _ = batch
@@ -102,6 +104,7 @@ def create_decoder_step(decoder, mesh):
         mesh=mesh,
         in_specs=(P(), P("batch"), P()),
         out_specs=P("batch"),
+        check_rep=False
         )
     def decoder_step(decoder_params, z, coords):
         u_pred, v_pred = vmap(
@@ -125,6 +128,7 @@ def create_eval_step(encoder, decoder, mesh):
         mesh=mesh,
         in_specs=(P(), P("batch")),
         out_specs=(P("batch"), P("batch"),  P("batch")),
+        check_rep=False
     )
     def eval_step(params, batch):
         encoder_params, decoder_params = params
