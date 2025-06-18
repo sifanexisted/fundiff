@@ -54,7 +54,7 @@ This stage learns to encode physical functions into a compact latent representat
 #### Stage 2: Train Latent Diffusion Model
 
 ```bash
-python main.py --config=configs/diffusion.py:fae,dit
+python main.py --config=configs/diffusion.py:fae,dit --config.training.use_pde=True
 ```
 
 This stage trains the diffusion model to generate new samples in the learned latent space.
