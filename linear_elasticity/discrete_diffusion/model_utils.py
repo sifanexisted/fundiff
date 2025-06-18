@@ -1,12 +1,4 @@
-from einops import rearrange
-
-import numpy as np
-
-from tqdm import tqdm
-
-
 import jax
-from jax import random
 
 import jax.numpy as jnp
 from functools import partial
@@ -16,7 +8,6 @@ from jax.sharding import PartitionSpec as P
 
 from flax.training import train_state
 
-from function_diffusion.utils.data_utils import BaseDataset
 
 def create_autoencoder_state(config, encoder, decoder, tx):
     x = jnp.ones(config.x_dim)

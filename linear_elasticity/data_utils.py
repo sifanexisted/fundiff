@@ -24,11 +24,8 @@ class BaseDataset(Dataset):
         for input_file, input_key in zip(input_files, input_keys):
 
             inputs = h5py.File(input_file, "r")[input_key]
-
-            print(inputs.shape)
             inputs = np.array(inputs)
             inputs = np.transpose(inputs, (0, 2, 3, 1))
-
             inputs = inputs[:, :: self.downsample_factor, :: self.downsample_factor, [0, 4, 8]
                      ]
 

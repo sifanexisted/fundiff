@@ -1,9 +1,3 @@
-from tqdm import tqdm
-
-from einops import rearrange
-
-import numpy as np
-
 import jax
 import jax.numpy as jnp
 from functools import partial
@@ -12,18 +6,11 @@ from jax.experimental.shard_map import shard_map
 from jax.sharding import PartitionSpec as P
 
 
-from flax.training import train_state
-
-
-from function_diffusion.utils.data_utils import BaseDataset
-
-
 @partial(jit, static_argnums=(0,))
 def u_net(decoder, decoder_params, z, x, y):
     coords = jnp.stack([x, y], axis=-1)
     u = decoder.apply(decoder_params, z, coords)
     return u.squeeze()
-
 
 
 @partial(jit, static_argnums=(0, 1))

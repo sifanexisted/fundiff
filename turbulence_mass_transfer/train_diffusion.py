@@ -24,7 +24,6 @@ from function_diffusion.utils.train_utils import create_train_diffusion_step, ge
 from function_diffusion.utils.checkpoint_utils import (
     create_checkpoint_manager,
     save_checkpoint,
-    restore_checkpoint,
     restore_fae_state
 )
 from function_diffusion.utils.data_utils import create_dataloader, BatchParser
