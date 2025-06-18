@@ -46,7 +46,7 @@ cd examples/kf_generation
 #### Stage 1: Train Function Autoencoder
 
 ```bash
-python train_autoencoder.py --config configs/autoencoder.py:fae
+python train_autoencoder.py --config=configs/autoencoder.py:fae
 ```
 
 This stage learns to encode physical functions into a compact latent representation while preserving essential structural information.
@@ -54,14 +54,14 @@ This stage learns to encode physical functions into a compact latent representat
 #### Stage 2: Train Latent Diffusion Model
 
 ```bash
-python train_diffusion.py --config configs/diffusion.py:fae,dit
+python train_diffusion.py --config=configs/diffusion.py:fae,dit
 ```
 
 This stage trains the diffusion model to generate new samples in the learned latent space.
 
 ## Evaluation
 
-To evaluate the trained FunDiff model and generate new samples, please check our jupyter notebook for each example.
+To evaluate the trained FunDiff model and generate new samples, please check our jupyter notebooks for each example.
 
 
 <!-- ## Configuration
