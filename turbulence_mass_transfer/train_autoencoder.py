@@ -20,7 +20,6 @@ from function_diffusion.utils.model_utils import (
 from function_diffusion.utils.checkpoint_utils import (
     create_checkpoint_manager,
     save_checkpoint,
-    restore_checkpoint,
 )
 from function_diffusion.utils.data_utils import create_dataloader, BatchParser
 
