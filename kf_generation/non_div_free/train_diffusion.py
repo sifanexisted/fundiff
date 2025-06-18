@@ -20,7 +20,7 @@ from function_diffusion.utils.model_utils import (
     create_diffusion_state,
     compute_total_params,
 )
-from function_diffusion.utils.train_utils import create_train_diffusion_step, get_diffusion_batch, sample_ode
+from function_diffusion.utils.train_utils import create_train_diffusion_step, get_diffusion_batch
 from function_diffusion.utils.checkpoint_utils import (
     create_checkpoint_manager,
     save_checkpoint,
