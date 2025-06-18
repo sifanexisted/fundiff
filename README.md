@@ -26,7 +26,7 @@ pip install -e .
 
 ## Dataset
 
-Training datasets are available for download at [dataset link]()(coming soon). Download and extract the datasets to the appropriate directory and change the data path accordinly in config files before training.
+Training datasets are available for download at [dataset link](https://drive.google.com/drive/folders/1GX5uG_3R-yfuP9nMIk0v7ChuEytYwYPW?usp=drive_link). Download and extract the datasets to the appropriate directory and change the data path accordinly in config files before training.
 
 ## Training Pipeline
 
