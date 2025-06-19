@@ -5,6 +5,7 @@
 
 **Affiliation:** Yale University
 
+[//]: # ()
 [//]: # (![FunDiff Pipeline]&#40;figures/pipline.png&#41;)
 
 [//]: # (<img src="figures/pipline.png" alt="FunDiff Pipeline" width="800" />)
@@ -30,10 +31,16 @@ Training datasets are available for download at [dataset link](https://drive.goo
 
 ## Training Pipeline
 
+
+![FunDiff Pipeline](figures/step1.png)
+![FunDiff Pipeline](figures/step2.png)
+
 FunDiff employs a two-stage training procedure:
 
 1. **Training Function Autoencoder**: Maps functions to a latent representation 
 2. **Training Latent Diffusion Model**: Learns the diffusion process in the latent space via rectified flow
+
+
 
 ### Example: Burgers flow reconstruction
 
@@ -43,7 +50,7 @@ Navigate to the Kolmogorov flow example directory:
 cd examples/burgers/diffusion
 ```
 
-#### Stage 1: Train Function Autoencoder with PDE constraints
+#### Step 1: Train Function Autoencoder with PDE constraints
 
 ```bash
 python main.py --config=configs/autoencoder.py:fae --config.training.use_pde=True
@@ -51,7 +58,7 @@ python main.py --config=configs/autoencoder.py:fae --config.training.use_pde=Tru
 
 This stage learns to encode physical functions into a compact latent representation while preserving essential structural information.
 
-#### Stage 2: Train Latent Diffusion Model
+#### Step 2: Train Latent Diffusion Model
 
 ```bash
 python main.py --config=configs/diffusion.py:fae,dit --config.training.use_pde=True
@@ -75,6 +82,8 @@ python main.py --config=configs/base.py:fno
 
 
 ## Evaluation
+
+![FunDiff Pipeline](figures/step3.png)
 
 To evaluate the trained FunDiff model and generate new samples, please check our jupyter notebooks for each example.
 
