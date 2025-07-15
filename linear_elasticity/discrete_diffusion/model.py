@@ -128,7 +128,7 @@ class CrossAttnBlock(nn.Module):
         return x + y
 
 
-class PerciverBlock(nn.Module):
+class PerceiverBlock(nn.Module):
     emb_dim: int
     depth: int
     num_heads: int = 8
@@ -193,7 +193,7 @@ class Encoder(nn.Module):
         x = x + pos_emb_interp
 
         # Embed into tokens of the same length as the latents
-        x = PerciverBlock(emb_dim=self.emb_dim, depth=2, num_heads=self.num_heads, num_latents=self.num_latents)(x)
+        x = PerceiverBlock(emb_dim=self.emb_dim, depth=2, num_heads=self.num_heads, num_latents=self.num_latents)(x)
         x = nn.LayerNorm(epsilon=self.layer_norm_eps)(x)
 
         # x = x + pos_emb.value
