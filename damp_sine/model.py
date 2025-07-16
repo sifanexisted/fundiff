@@ -148,7 +148,7 @@ class Encoder(nn.Module):
         return x
 
 
-class PerciverBlock(nn.Module):
+class PerceiverBlock(nn.Module):
     emb_dim: int
     depth: int
     num_heads: int = 8
