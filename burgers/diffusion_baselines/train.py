@@ -12,18 +12,23 @@ import jax.numpy as jnp
 from jax.experimental import mesh_utils, multihost_utils
 from jax.sharding import Mesh, PartitionSpec as P
 
+from flax.training import train_state
+
+
 from function_diffusion.utils.model_utils import (
-    create_model,
-    create_train_state,
     create_optimizer,
     compute_total_params,
 )
+
+# from function_diffusion.utils.baseline_utils import create_model
+
 from function_diffusion.utils.checkpoint_utils import (
     create_checkpoint_manager,
     save_checkpoint,
 )
 from function_diffusion.utils.data_utils import create_dataloader
 from function_diffusion.utils.baseline_utils import create_train_step
+from function_diffusion.utils.data_utils import create_dataloader
 
 from burgers.data_utils import create_dataset
 
@@ -32,16 +37,16 @@ from function_diffusion.utils.dps_utils import create_ve_train_step, create_get_
 from function_diffusion.utils.dps_utils import create_edm_train_step, create_get_edm_batch_fn
 from function_diffusion.utils.dps_utils import get_ddpm_params
 
-from burgers.data_utils import create_dataset, create_dataloader
+from function_diffusion.models.dps import VEPrecond
 
-
+from burgers.data_utils import create_dataset
 
 def create_train_state(config, model, tx):
     # Initialize the model if the params are not provided, otherwise use the provided params to create the state
     x = jnp.ones(config.x_dim)
     t = jnp.ones((config.x_dim[0],))
     sigma = jnp.ones((config.x_dim[0],))
-    # params = model.init(random.PRNGKey(config.seed), x=x, time=t)
+    #params = model.init(random.PRNGKey(config.seed), x=x, time=t)
     params = model.init(random.PRNGKey(config.seed), x=x, sigma=sigma)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     return state
@@ -49,7 +54,7 @@ def create_train_state(config, model, tx):
 
 def train_and_evaluate(config: ml_collections.ConfigDict):
     # Initialize model
-    model = create_model(config)
+    model = VEPrecond(**config.model)
     # Create learning rate schedule and optimizer
     lr, tx = create_optimizer(config)
 
