@@ -16,12 +16,15 @@ def _register(get_config):
 def get_vedps_config():
     config = ml_collections.ConfigDict()
     config.model_name = "VEPrecond"
-    config.img_resolution = 128
-    config.img_channels = 2
+    config.img_resolution = 256
+    config.img_channels = 1
     config.label_dim = 0
     config.use_fp16 = False
-    config.sigma_min = 8e-2
-    config.sigma_max = 200.0
+    # config.sigma_min = 8e-2
+    # config.sigma_max = 200.0
+    config.sigma_min = 0.002
+    config.sigma_max = 80.0
+
     config.model_kwargs = dict(
         embedding_type="positional",
         model_channels=64,

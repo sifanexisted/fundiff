@@ -38,7 +38,7 @@ def get_base_config():
     dataset.data_path = "/scratch/sifanw/transformer_as_integrator/burgers/burger_nu_1e-3.mat"
     dataset.downsample_factor = 1
     dataset.num_train_samples = 3600
-    dataset.train_batch_size = 32  # Per device
+    dataset.train_batch_size = 64  # Per device
     dataset.test_batch_size = 4  # Per device
     dataset.num_workers = 8
 
@@ -49,16 +49,12 @@ def get_base_config():
     ddpm.p2_loss_weight_gamma = 0.  # p2 loss weight, from https://arxiv.org/abs/2204.00227 - 0 is equivalent to weight of 1 across time - 1. is recommended
     ddpm.p2_loss_weight_k = 1
     ddpm.self_condition = True  # not tested yet
-    ddpm.is_pred_x0 = False  # by default, the model will predict noise, if True predict x0
+    ddpm.is_pred_x0 = True  # by default, the model will predict noise, if True predict x0
 
     # ve
     config.ve = ve = ml_collections.ConfigDict()
-    # ve.sigma_min = 8e-2
-    # ve.sigma_max = 80.
-
-    # DiffusionPDE
-    sigma_min: 0.002
-    sigma_max: 80
+    ve.sigma_min = 8e-2
+    ve.sigma_max = 80.
 
     # edm
     config.edm = edm = ml_collections.ConfigDict()

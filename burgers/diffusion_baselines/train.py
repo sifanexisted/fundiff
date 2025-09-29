@@ -20,17 +20,13 @@ from function_diffusion.utils.model_utils import (
     compute_total_params,
 )
 
-# from function_diffusion.utils.baseline_utils import create_model
 
 from function_diffusion.utils.checkpoint_utils import (
     create_checkpoint_manager,
     save_checkpoint,
 )
-from function_diffusion.utils.data_utils import create_dataloader
-from function_diffusion.utils.baseline_utils import create_train_step
-from function_diffusion.utils.data_utils import create_dataloader
 
-from burgers.data_utils import create_dataset
+from function_diffusion.utils.data_utils import create_dataloader
 
 from function_diffusion.utils.dps_utils import create_ddpm_train_step, create_get_ddpm_batch_fn
 from function_diffusion.utils.dps_utils import create_ve_train_step, create_get_ve_batch_fn
@@ -100,7 +96,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
                                      num_workers=config.dataset.num_workers)
 
     # Create checkpoint manager
-    job_name = f"{config.model.model_name}"
+    job_name = f"{config.model.model_name}_pred_x0_{config.ddpm.is_pred_x0}"
     ckpt_path = os.path.join(os.getcwd(), job_name, "ckpt")
     if jax.process_index() == 0:
         if not os.path.isdir(ckpt_path):
@@ -120,19 +116,19 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
     ckpt_mngr = create_checkpoint_manager(config.saving, ckpt_path)
 
     # Training loop
-    rng_key = random.PRNGKey(0)
+    rng_key = jax.random.PRNGKey(0)
     for epoch in range(10000):
         start_time = time.time()
-        for batch in train_loader:
-            rng_key, subkey = random.split(rng_key)
-            batch = jax.tree.map(jnp.array, batch)
+        for x in train_loader:
+            rng_key, subkey = jax.random.split(rng_key)
 
-            batch, rng_key = get_batch(subkey, batch)
+            x = jax.tree.map(jnp.array, x)
+            x = jax.image.resize(x, (x.shape[0], 256, 256, x.shape[-1]), method='bilinear')
+            batch, rng_key = get_batch(subkey, x)
 
             batch = multihost_utils.host_local_array_to_global_array(
                 batch, mesh, P("batch")
             )
-
             state, loss = train_step(state, batch)
 
         # Logging

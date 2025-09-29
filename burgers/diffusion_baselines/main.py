@@ -18,8 +18,10 @@ config_flags.DEFINE_config_file(
 
 
 def main(argv):
-    if FLAGS.config.mode == "train":
+    if FLAGS.config.mode == "train_ddpm":
         train.train_and_evaluate(FLAGS.config)
+
+
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(["config"])

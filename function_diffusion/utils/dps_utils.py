@@ -481,9 +481,11 @@ def model_predict(state, x, sigma_batch, ddpm_params, is_pred_x0):
         x0_pred = noise_to_x0(pred, x, sigma_batch)
     return x0_pred, noise_pred
 
-def get_loss(u_pred, u_gt, mask):
-    obs = (u_pred - u_gt) * mask[..., None] # (H,W)
-    return obs
+def get_loss(u_pred, u_gt, mask=None):
+    diff = u_pred - u_gt
+    if mask is not None:
+        diff = (u_pred - u_gt) * mask[..., None] # (H,W)
+    return diff
 
 def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_obs=100.0, is_pred_x0=False):
     sigma_scalar = ddpm_params['sqrt_1m_alphas_bar'][t] # () scalar
