@@ -39,7 +39,7 @@ def get_ddpm_params(config):
     schedule_name = config.beta_schedule
     timesteps = config.timesteps
     p2_loss_weight_gamma = config.p2_loss_weight_gamma
-    p2_loss_weight_k = config.p2_loss_weight_gamma
+    p2_loss_weight_k = config.p2_loss_weight_k
 
     if schedule_name == 'linear':
         betas = linear_beta_schedule(timesteps)
