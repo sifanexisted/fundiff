@@ -38,13 +38,13 @@ def get_burgers_res(u, nu=0.01, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
     dt = (t_hi - t_lo) / (nt - 1)
 
     # time derivative (Euler at ends, central inside)
-    u_t = jnp.gradient(u, dt, axis=1, edge_order=1)
+    u_t = jnp.gradient(u, dt, axis=1)
 
     # first space derivative
-    u_x = jnp.gradient(u, dx, axis=2, edge_order=1)
+    u_x = jnp.gradient(u, dx, axis=2)
 
     # second space derivative
-    u_xx = jnp.gradient(u_x, dx, axis=2, edge_order=1)
+    u_xx = jnp.gradient(u_x, dx, axis=2)
 
     res = u_t + u * u_x - nu * u_xx
     return res
