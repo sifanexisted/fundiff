@@ -67,7 +67,7 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
         obs_loss = jnp.linalg.norm(obs_res)
         pde_loss = jnp.linalg.norm(pde_res)
 
-        return (obs_loss, pde_loss, x0, v)
+        return obs_loss, pde_loss, x0, v
 
 
     (obs_loss, pde_loss, x0, v), grads = jax.value_and_grad(
