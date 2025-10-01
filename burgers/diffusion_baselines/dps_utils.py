@@ -69,14 +69,20 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
 
         return obs_loss, pde_loss, x0, v
 
+    def obs_loss_fn(x_in):
+        obs_loss, _, _, _ = loss_fn(x_in)
+        return obs_loss
 
-    (obs_loss, pde_loss, x0, v), grads = jax.value_and_grad(
-        lambda xx: loss_fn(xx)[:2],  # only returns (L_obs, L_pde)
-        has_aux=True
-    )(x)
+    def pde_loss_fn(x_in):
+        _, pde_loss, _, _ = loss_fn(x_in)
+        return pde_loss
 
-    # grads is a tuple (grad_L_obs, grad_L_pde)
-    obs_grads, pde_grads = grads
+    # compute grads separately
+    (obs_loss, pde_loss, x0, v) = loss_fn(x)
+
+    obs_grads = jax.grad(obs_loss_fn)(x)
+    pde_grads = jax.grad(pde_loss_fn)(x)
+
 
     def clip_grad(g):
         g_norm = jnp.linalg.norm(g)
