@@ -104,7 +104,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
                                      num_workers=config.dataset.num_workers)
 
     # Create checkpoint manager
-    job_name = f"{config.model.model_name}_pred_x0_{config.ddpm.is_pred_x0}"
+    job_name = f"{config.model.model_name}_pred_x0_{config.ddpm.is_pred_x0}_use_pde_{config.use_pde_loss}"
     ckpt_path = os.path.join(os.getcwd(), job_name, "ckpt")
     if jax.process_index() == 0:
         if not os.path.isdir(ckpt_path):
