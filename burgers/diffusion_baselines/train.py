@@ -36,6 +36,7 @@ from function_diffusion.utils.dps_utils import get_ddpm_params
 from function_diffusion.models.dps import VEPrecond
 
 from burgers.data_utils import create_dataset
+from burgers.diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
 
 def create_train_state(config, model, tx):
     # Initialize the model if the params are not provided, otherwise use the provided params to create the state
@@ -73,21 +74,28 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
         ddpm_params = get_ddpm_params(config.ddpm)
         get_batch = create_get_ddpm_batch_fn(ddpm_params)
         train_step = create_ddpm_train_step(
-            model, ddpm_params, mesh, loss_type='rel2', is_pred_x0=False
+            model,
+            ddpm_params,
+            mesh,
+            loss_type='rel2',
+            is_pred_x0=config.ddpm.is_pred_x0,
+            use_pde_loss=config.use_pde_loss,
+            pde_loss_weight=0.1,
+            get_pde_residual=get_burgers_res
         )
 
     elif config.mode == "train_ve":
         ve_params = config.ve
         get_batch = create_get_ve_batch_fn(ve_params)
         train_step = create_ve_train_step(
-            model, ve_params, mesh, loss_type='rel2', is_pred_x0=False
+            model, ve_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
         )
 
     elif config.mode == "train_edm":
         edm_params = config.edm
         get_batch = create_get_edm_batch_fn(edm_params)
         train_step = create_edm_train_step(
-            model, edm_params, mesh, loss_type='rel2', is_pred_x0=False
+            model, edm_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
         )
 
     train_dataset, test_dataset = create_dataset(config)
@@ -96,7 +104,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
                                      num_workers=config.dataset.num_workers)
 
     # Create checkpoint manager
-    job_name = f"{config.model.model_name}_pred_x0_{config.ddpm.is_pred_x0}"
+    job_name = f"{config.model.model_name}_pred_x0_{config.ddpm.is_pred_x0}_use_pde_{config.use_pde_loss}"
     ckpt_path = os.path.join(os.getcwd(), job_name, "ckpt")
     if jax.process_index() == 0:
         if not os.path.isdir(ckpt_path):
@@ -123,7 +131,10 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
             rng_key, subkey = jax.random.split(rng_key)
 
             x = jax.tree.map(jnp.array, x)
-            x = jax.image.resize(x, (x.shape[0], 256, 256, x.shape[-1]), method='bilinear')
+
+            x = jax.image.resize(x, (x.shape[0], 128, 128, x.shape[-1]), method='bilinear')
+
+
             batch, rng_key = get_batch(subkey, x)
 
             batch = multihost_utils.host_local_array_to_global_array(

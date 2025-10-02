@@ -25,8 +25,7 @@ def get_base_config():
     config.mode = "train_ddpm"  # options: train_ve | train_ddpm | train_edm
 
     # physics-informed training
-    config.use_pde_loss = False
-    # config.physics_informed_sample = False
+    config.use_pde_loss = True
 
     # Weights & Biases
     config.wandb = wandb = ml_collections.ConfigDict()
@@ -49,7 +48,7 @@ def get_base_config():
     ddpm.p2_loss_weight_gamma = 0.  # p2 loss weight, from https://arxiv.org/abs/2204.00227 - 0 is equivalent to weight of 1 across time - 1. is recommended
     ddpm.p2_loss_weight_k = 1
     ddpm.self_condition = True  # not tested yet
-    ddpm.is_pred_x0 = True  # by default, the model will predict noise, if True predict x0
+    ddpm.is_pred_x0 = False  # by default, the model will predict noise, if True predict x0
 
     # ve
     config.ve = ve = ml_collections.ConfigDict()

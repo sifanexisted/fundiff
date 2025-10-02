@@ -16,7 +16,7 @@ def _register(get_config):
 def get_vedps_config():
     config = ml_collections.ConfigDict()
     config.model_name = "VEPrecond"
-    config.img_resolution = 256
+    config.img_resolution = 128
     config.img_channels = 1
     config.label_dim = 0
     config.use_fp16 = False
