@@ -58,6 +58,7 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
     max_norm = 1e3
     max_grad = 1.0
 
+    @jax.jit
     def loss_fn(x_in):
         x0, v = model_predict(state, x_in, sigma_batch, ddpm_params, is_pred_x0)
 
@@ -69,10 +70,12 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
 
         return obs_loss, pde_loss, x0, v
 
+    @jax.jit
     def obs_loss_fn(x_in):
         obs_loss, _, _, _ = loss_fn(x_in)
         return obs_loss
 
+    @jax.jit
     def pde_loss_fn(x_in):
         _, pde_loss, _, _ = loss_fn(x_in)
         return pde_loss
@@ -82,7 +85,6 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
 
     obs_grads = jax.grad(obs_loss_fn)(x)
     pde_grads = jax.grad(pde_loss_fn)(x)
-
 
     def clip_grad(g):
         g_norm = jnp.linalg.norm(g)
