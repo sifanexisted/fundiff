@@ -73,21 +73,21 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
         ddpm_params = get_ddpm_params(config.ddpm)
         get_batch = create_get_ddpm_batch_fn(ddpm_params)
         train_step = create_ddpm_train_step(
-            model, ddpm_params, mesh, loss_type='rel2', is_pred_x0=False
+            model, ddpm_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
         )
 
     elif config.mode == "train_ve":
         ve_params = config.ve
         get_batch = create_get_ve_batch_fn(ve_params)
         train_step = create_ve_train_step(
-            model, ve_params, mesh, loss_type='rel2', is_pred_x0=False
+            model, ve_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
         )
 
     elif config.mode == "train_edm":
         edm_params = config.edm
         get_batch = create_get_edm_batch_fn(edm_params)
         train_step = create_edm_train_step(
-            model, edm_params, mesh, loss_type='rel2', is_pred_x0=False
+            model, edm_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
         )
 
     train_dataset, test_dataset = create_dataset(config)

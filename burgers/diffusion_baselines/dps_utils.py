@@ -13,7 +13,79 @@ from jax import vmap, jit, lax, random
 from jax.experimental.shard_map import shard_map
 from jax.sharding import PartitionSpec as P
 
-from function_diffusion.utils.dps_utils import model_predict, get_posterior_mean_variance
+from function_diffusion.utils.dps_utils import model_predict, get_posterior_mean_variance, l1_loss, l2_loss, rel2_loss, flatten
+
+
+def create_ddpm_loss_fn(model, ddpm_params, loss_type='l2', is_pred_x0=False):
+    """Create DDPM loss function"""
+
+    if loss_type == 'l1':
+        loss_fn = l1_loss
+    elif loss_type == 'l2':
+        loss_fn = l2_loss
+    elif loss_type == 'rel2':
+        loss_fn = rel2_loss
+    else:
+        raise NotImplementedError(f'Loss type {loss_type} not supported')
+
+    def ddpm_loss(params, batch):
+        x, x_t, sigma, batched_t, noise = batch
+
+        B = x_t.shape[0]
+
+        # Target is either original image (if is_pred_x0) or noise
+        target = noise if not is_pred_x0 else x
+
+        # Model prediction
+        pred = model.apply(params, x_t, sigma)
+
+        # alpha_bar_t = ddpm_params['alphas_bar'][batched_t]  # shape (B,)
+        # sqrt_alpha_bar = jnp.sqrt(alpha_bar_t)[..., None, None, None]
+        # sigma_t = jnp.sqrt(1.0 - alpha_bar_t)[..., None, None, None]
+        # x0_est = (x_t - sigma_t * pred) / sqrt_alpha_bar
+
+        # Compute loss
+        loss = loss_fn(flatten(pred), flatten(target))
+        assert loss.shape == (B,)
+
+        # Apply P2 loss weighting if available
+        if 'p2_loss_weight' in ddpm_params:
+            p2_loss_weight = ddpm_params['p2_loss_weight']
+            loss = loss * p2_loss_weight[batched_t]
+
+        return loss.mean()
+
+    return ddpm_loss
+
+def create_ddpm_train_step(model, ddpm_params, mesh, loss_type='l2', is_pred_x0=False):
+    """Create DDPM training step with JAX sharding"""
+
+    ddpm_loss_fn = create_ddpm_loss_fn(
+        model, ddpm_params, loss_type, is_pred_x0
+    )
+
+    @jax.jit
+    @partial(
+        shard_map,
+        mesh=mesh,
+        in_specs=(P(), P("batch")),
+        out_specs=(P(), P()),
+    )
+    def train_step(state, batch):
+        # Compute gradients
+        grad_fn = jax.value_and_grad(ddpm_loss_fn, has_aux=False)
+        loss, grads = grad_fn(state.params, batch)
+
+        # Average across devices
+        grads = lax.pmean(grads, "batch")
+        loss = lax.pmean(loss, "batch")
+
+        # Update parameters
+        state = state.apply_gradients(grads=grads)
+        return state, loss
+
+    return train_step
+
 
 
 def get_data_res(u_pred, u_gt, mask=None):
