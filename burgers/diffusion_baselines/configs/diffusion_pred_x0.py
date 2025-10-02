@@ -25,7 +25,7 @@ def get_base_config():
     config.mode = "train_ddpm"  # options: train_ve | train_ddpm | train_edm
 
     # physics-informed training
-    config.physics_informed_train = False
+    config.use_pde_loss = False
     # config.physics_informed_sample = False
 
     # Weights & Biases
@@ -53,12 +53,12 @@ def get_base_config():
 
     # ve
     config.ve = ve = ml_collections.ConfigDict()
-    # ve.sigma_min = 8e-2
-    # ve.sigma_max = 80.
+    ve.sigma_min = 8e-2
+    ve.sigma_max = 80.
 
     # DiffusionPDE
-    sigma_min: 0.002
-    sigma_max: 80
+    # sigma_min: 0.002
+    # sigma_max: 80
 
     # edm
     config.edm = edm = ml_collections.ConfigDict()

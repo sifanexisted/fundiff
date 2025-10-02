@@ -16,78 +16,6 @@ from jax.sharding import PartitionSpec as P
 from function_diffusion.utils.dps_utils import model_predict, get_posterior_mean_variance, l1_loss, l2_loss, rel2_loss, flatten
 
 
-def create_ddpm_loss_fn(model, ddpm_params, loss_type='l2', is_pred_x0=False):
-    """Create DDPM loss function"""
-
-    if loss_type == 'l1':
-        loss_fn = l1_loss
-    elif loss_type == 'l2':
-        loss_fn = l2_loss
-    elif loss_type == 'rel2':
-        loss_fn = rel2_loss
-    else:
-        raise NotImplementedError(f'Loss type {loss_type} not supported')
-
-    def ddpm_loss(params, batch):
-        x, x_t, sigma, batched_t, noise = batch
-
-        B = x_t.shape[0]
-
-        # Target is either original image (if is_pred_x0) or noise
-        target = noise if not is_pred_x0 else x
-
-        # Model prediction
-        pred = model.apply(params, x_t, sigma)
-
-        # alpha_bar_t = ddpm_params['alphas_bar'][batched_t]  # shape (B,)
-        # sqrt_alpha_bar = jnp.sqrt(alpha_bar_t)[..., None, None, None]
-        # sigma_t = jnp.sqrt(1.0 - alpha_bar_t)[..., None, None, None]
-        # x0_est = (x_t - sigma_t * pred) / sqrt_alpha_bar
-
-        # Compute loss
-        loss = loss_fn(flatten(pred), flatten(target))
-        assert loss.shape == (B,)
-
-        # Apply P2 loss weighting if available
-        if 'p2_loss_weight' in ddpm_params:
-            p2_loss_weight = ddpm_params['p2_loss_weight']
-            loss = loss * p2_loss_weight[batched_t]
-
-        return loss.mean()
-
-    return ddpm_loss
-
-def create_ddpm_train_step(model, ddpm_params, mesh, loss_type='l2', is_pred_x0=False):
-    """Create DDPM training step with JAX sharding"""
-
-    ddpm_loss_fn = create_ddpm_loss_fn(
-        model, ddpm_params, loss_type, is_pred_x0
-    )
-
-    @jax.jit
-    @partial(
-        shard_map,
-        mesh=mesh,
-        in_specs=(P(), P("batch")),
-        out_specs=(P(), P()),
-    )
-    def train_step(state, batch):
-        # Compute gradients
-        grad_fn = jax.value_and_grad(ddpm_loss_fn, has_aux=False)
-        loss, grads = grad_fn(state.params, batch)
-
-        # Average across devices
-        grads = lax.pmean(grads, "batch")
-        loss = lax.pmean(loss, "batch")
-
-        # Update parameters
-        state = state.apply_gradients(grads=grads)
-        return state, loss
-
-    return train_step
-
-
-
 def get_data_res(u_pred, u_gt, mask=None):
     res = u_pred - u_gt
     if mask is not None:
@@ -95,7 +23,7 @@ def get_data_res(u_pred, u_gt, mask=None):
     return res
 
 
-def get_burgers_res(u, nu=0.01, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
+def get_burgers_res(u, nu=0.001, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
     """
     Burgers PDE residual:
         r = u_t + u * u_x - nu * u_xx
@@ -120,6 +48,110 @@ def get_burgers_res(u, nu=0.01, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
 
     res = u_t + u * u_x - nu * u_xx
     return res
+
+
+def create_ddpm_loss_fn(model, ddpm_params,
+                        loss_type: str = 'l2',
+                        is_pred_x0: bool = False,
+                        use_pde_loss: bool = False,
+                        pde_loss_weight: float = 0.1,
+                        get_pde_residual=None):
+    """
+    Create DDPM loss function with optional physics-informed PDE residual.
+
+    Args:
+        model: neural network model
+        ddpm_params: dict containing diffusion parameters
+        loss_type: 'l1', 'l2', or 'rel2'
+        is_pred_x0: whether the model predicts x0 (True) or noise (False)
+        use_pde_loss: if True, include PDE residual term
+        pde_loss_weight: scalar weight for PDE loss contribution
+        get_pde_residual: function handle that takes x0_est and returns PDE residual
+    """
+
+    if loss_type == 'l1':
+        loss_fn = l1_loss
+    elif loss_type == 'l2':
+        loss_fn = l2_loss
+    elif loss_type == 'rel2':
+        loss_fn = rel2_loss
+    else:
+        raise NotImplementedError(f'Loss type {loss_type} not supported')
+
+    def ddpm_loss(params, batch):
+        x, x_t, sigma, batched_t, noise = batch
+        B = x_t.shape[0]
+
+        # Target: either original image (x) or noise
+        target = noise if not is_pred_x0 else x
+
+        # Model prediction
+        pred = model.apply(params, x_t, sigma)
+
+        # Base data loss
+        data_loss = loss_fn(flatten(pred), flatten(target))
+        assert data_loss.shape == (B,)
+
+        # PDE residual loss (optional)
+        pde_loss = 0.0
+        if use_pde_loss and (get_pde_residual is not None):
+            # Estimate x0 if predicting noise
+            if not is_pred_x0:
+                alpha_bar_t = ddpm_params['alphas_bar'][batched_t]
+                sqrt_alpha_bar = jnp.sqrt(alpha_bar_t)[..., None, None, None]
+                sigma_t = jnp.sqrt(1.0 - alpha_bar_t)[..., None, None, None]
+                x0_est = (x_t - sigma_t * pred) / sqrt_alpha_bar
+            else:
+                x0_est = pred  # already x0
+
+            pde_res = get_pde_residual(x0_est)   # user-defined PDE operator
+            pde_loss = jnp.mean(pde_res**2)
+
+        # Apply P2 loss weighting if available
+        if 'p2_loss_weight' in ddpm_params:
+            p2_loss_weight = ddpm_params['p2_loss_weight']
+            data_loss = data_loss * p2_loss_weight[batched_t]
+
+        # Total
+        total_loss = data_loss.mean() + (pde_loss_weight * pde_loss.mean() if use_pde_loss else 0.0)
+        return total_loss
+
+    return ddpm_loss
+
+
+
+def create_ddpm_train_step(model, ddpm_params, mesh, loss_type='l2',
+                           is_pred_x0=False,
+                           use_pde_loss=False,
+                           pde_loss_weight=0.1,
+                           get_pde_residual=get_burgers_res):
+    """Create DDPM training step with JAX sharding"""
+
+    ddpm_loss_fn = create_ddpm_loss_fn(
+        model, ddpm_params, loss_type, is_pred_x0, use_pde_loss, pde_loss_weight, get_pde_residual=get_pde_residual
+    )
+
+    @jax.jit
+    @partial(
+        shard_map,
+        mesh=mesh,
+        in_specs=(P(), P("batch")),
+        out_specs=(P(), P()),
+    )
+    def train_step(state, batch):
+        # Compute gradients
+        grad_fn = jax.value_and_grad(ddpm_loss_fn, has_aux=False)
+        loss, grads = grad_fn(state.params, batch)
+
+        # Average across devices
+        grads = lax.pmean(grads, "batch")
+        loss = lax.pmean(loss, "batch")
+
+        # Update parameters
+        state = state.apply_gradients(grads=grads)
+        return state, loss
+
+    return train_step
 
 
 def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_obs=320, zeta_pde=100, is_pred_x0=False, obs_guide=True, pde_guide=False):

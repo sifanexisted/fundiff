@@ -36,6 +36,7 @@ from function_diffusion.utils.dps_utils import get_ddpm_params
 from function_diffusion.models.dps import VEPrecond
 
 from burgers.data_utils import create_dataset
+from burgers.diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
 
 def create_train_state(config, model, tx):
     # Initialize the model if the params are not provided, otherwise use the provided params to create the state
@@ -73,7 +74,14 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
         ddpm_params = get_ddpm_params(config.ddpm)
         get_batch = create_get_ddpm_batch_fn(ddpm_params)
         train_step = create_ddpm_train_step(
-            model, ddpm_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
+            model,
+            ddpm_params,
+            mesh,
+            loss_type='rel2',
+            is_pred_x0=config.ddpm.is_pred_x0,
+            use_pde_loss=config.use_pde_loss,
+            pde_loss_weight=0.1,
+            get_pde_residual=get_burgers_res
         )
 
     elif config.mode == "train_ve":
