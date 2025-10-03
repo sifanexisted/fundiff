@@ -54,7 +54,7 @@ def create_ddpm_loss_fn(model, ddpm_params,
                         loss_type: str = 'l2',
                         is_pred_x0: bool = False,
                         use_pde_loss: bool = False,
-                        pde_loss_weight: float = 0.1,
+                        pde_loss_weight: float = 1e-3,
                         get_pde_residual=None):
     """
     Create DDPM loss function with optional physics-informed PDE residual.
