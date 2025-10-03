@@ -3,7 +3,10 @@ import scipy.io
 from function_diffusion.utils.data_utils import BaseDataset
 
 def create_dataset(config):
-    data = scipy.io.loadmat('/scratch/sifanw/transformer_as_integrator/burgers/burger_nu_1e-3.mat')
+    # data = scipy.io.loadmat('/scratch/sifanw/transformer_as_integrator/burgers/burger_nu_1e-3.mat')
+
+    path = config.dataset.data_path
+    data = scipy.io.loadmat(path)
 
     num_train = config.dataset.num_train_samples
 
