@@ -37,7 +37,7 @@ def get_base_config():
     dataset.data_path = "/home/sifanw/workspace/fundiff/burgers/burger_nu_1e-3.mat"
     dataset.downsample_factor = 1
     dataset.num_train_samples = 3600
-    dataset.train_batch_size = 128  # Per device
+    dataset.train_batch_size = 64  # Per device
     dataset.test_batch_size = 4  # Per device
     dataset.num_workers = 8
 
