@@ -2,6 +2,9 @@
 # Ashish Kumar’s FlaxDiff (https://github.com/AshishKumar4/FlaxDiff).
 # Sincere thanks to the author for the clear and well-structured reference.
 
+from functools import partial
+import flax.linen as nn
+
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
@@ -9,10 +12,10 @@ from flax.typing import Dtype, PrecisionLike
 from typing import Dict, Callable, Sequence, Any, Union, Optional
 import einops
 from einops import rearrange, repeat
-from common import kernel_init, ConvLayer, Downsample, Upsample, FourierEmbedding, TimeProjection, ResidualBlock
-from attention import TransformerBlock
-from functools import partial
-import flax.linen as nn
+
+from .common import kernel_init, ConvLayer, Downsample, Upsample, FourierEmbedding, TimeProjection, ResidualBlock
+from .attention import TransformerBlock
+
 
 
 class PatchEmbed(nn.Module):
