@@ -33,7 +33,8 @@ from function_diffusion.utils.dps_utils import create_ve_train_step, create_get_
 from function_diffusion.utils.dps_utils import create_edm_train_step, create_get_edm_batch_fn
 from function_diffusion.utils.dps_utils import get_ddpm_params
 
-from function_diffusion.models.dps import VEPrecond
+# from function_diffusion.models.dps import VEPrecond
+from function_diffusion.models.cond_unet import VEPrecond
 
 from burgers.data_utils import create_dataset
 from burgers.diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
@@ -42,9 +43,14 @@ def create_train_state(config, model, tx):
     # Initialize the model if the params are not provided, otherwise use the provided params to create the state
     x = jnp.ones(config.x_dim)
     t = jnp.ones((config.x_dim[0],))
+
+    if config.context_dim is not None:
+        context = jnp.ones(config.context_dim)
+    else:
+        context = None
+
     sigma = jnp.ones((config.x_dim[0],))
-    #params = model.init(random.PRNGKey(config.seed), x=x, time=t)
-    params = model.init(random.PRNGKey(config.seed), x=x, sigma=sigma)
+    params = model.init(random.PRNGKey(config.seed), x=x, sigma=sigma, context=context)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     return state
 
@@ -80,7 +86,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
             loss_type='rel2',
             is_pred_x0=config.ddpm.is_pred_x0,
             use_pde_loss=config.use_pde_loss,
-            pde_loss_weight=0.1,
+            pde_loss_weight=0.001,
             get_pde_residual=get_burgers_res
         )
 
@@ -133,7 +139,6 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
             x = jax.tree.map(jnp.array, x)
 
             x = jax.image.resize(x, (x.shape[0], 128, 128, x.shape[-1]), method='bilinear')
-
 
             batch, rng_key = get_batch(subkey, x)
 

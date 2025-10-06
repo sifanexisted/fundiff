@@ -20,6 +20,7 @@ def get_base_config():
 
     # Input shape for initializing Flax models
     config.x_dim = [2, 128, 128, 1]
+    config.context_dim = None  # e.g. [2, 128, 128, 1] if using context
 
     # Training or evaluation
     config.mode = "train_ddpm"  # options: train_ve | train_ddpm | train_edm
