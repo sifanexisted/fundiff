@@ -280,7 +280,7 @@ class VEPrecond(nn.Module):  # For both VE and DDPM
             norm_groups=self.norm_groups
         )
 
-    def __call__(self, x, sigma, textcontext):
+    def __call__(self, x, sigma, context):
 
         sigma = sigma.astype(jnp.float32).reshape((-1, 1, 1, 1))  # (N,1,1,1)
 
@@ -294,7 +294,7 @@ class VEPrecond(nn.Module):  # For both VE and DDPM
         F_x = self.model(
             c_in * x,
             c_noise,           # temb (scalar per batch element)
-            textcontext,       # NHWC or whatever you feed; your Unet does PatchEmbed internally if needed
+            context,       # NHWC or whatever you feed; your Unet does PatchEmbed internally if needed
         )
 
         D_x = c_skip * x + c_out * F_x
