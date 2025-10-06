@@ -86,7 +86,7 @@ def create_ddpm_loss_fn(model, ddpm_params,
         target = noise if not is_pred_x0 else x
 
         # Model prediction
-        pred = model.apply(params, x_t, sigma)  # TODO: Make context optional
+        pred = model.apply(params, x_t, sigma)
 
         # Base data loss
         data_loss = loss_fn(flatten(pred), flatten(target))
@@ -205,9 +205,9 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
     def late_step(x0):
         x_new = x0
         if obs_guide:
-            x_new = x_new - (zeta_obs / 10.0) * obs_grads
+            x_new = x_new - (zeta_obs) * obs_grads
         if pde_guide:
-            x_new = x_new - zeta_pde * pde_grads
+            x_new = x_new - zeta_pde * pde_grads - (zeta_obs / 10.0) * obs_grads
         return x_new
 
     if not obs_guide and not pde_guide:

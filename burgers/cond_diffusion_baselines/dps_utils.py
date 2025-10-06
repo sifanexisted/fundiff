@@ -13,7 +13,21 @@ from jax import vmap, jit, lax, random
 from jax.experimental.shard_map import shard_map
 from jax.sharding import PartitionSpec as P
 
-from function_diffusion.utils.dps_utils import model_predict, get_posterior_mean_variance, l1_loss, l2_loss, rel2_loss, flatten
+from function_diffusion.utils.dps_utils import get_posterior_mean_variance, l1_loss, l2_loss, rel2_loss, flatten, x0_to_noise, noise_to_x0
+
+
+def model_predict(state, x, sigma_batch, ddpm_params, is_pred_x0):
+    sigma_batch = jnp.clip(sigma_batch, a_min=1e-5, a_max=1 - (1e-5))
+    log_sigma = sigma_batch[..., 0, 0, 0]  # (B,) No log here TODO
+    pred = state.apply_fn(state.params, x, log_sigma, context=None)  #
+
+    if is_pred_x0:
+        x0_pred = pred
+        noise_pred = x0_to_noise(pred, x, sigma_batch)
+    else:
+        noise_pred = pred
+        x0_pred = noise_to_x0(pred, x, sigma_batch)
+    return x0_pred, noise_pred
 
 
 def get_data_res(u_pred, u_gt, mask=None):
@@ -86,7 +100,7 @@ def create_ddpm_loss_fn(model, ddpm_params,
         target = noise if not is_pred_x0 else x
 
         # Model prediction
-        pred = model.apply(params, x_t, sigma, context=None)  # TODO: Make context optional
+        pred = model.apply(params, x_t, sigma)  # TODO: Make context optional
 
         # Base data loss
         data_loss = loss_fn(flatten(pred), flatten(target))
@@ -207,7 +221,7 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
         if obs_guide:
             x_new = x_new - (zeta_obs / 10.0) * obs_grads
         if pde_guide:
-            x_new = x_new - zeta_pde * pde_grads
+            x_new = x_new - zeta_pde * pde_grads - (zeta_obs / 10.0) * obs_grads
         return x_new
 
     if not obs_guide and not pde_guide:

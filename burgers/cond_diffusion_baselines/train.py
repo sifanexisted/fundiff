@@ -37,7 +37,7 @@ from function_diffusion.utils.dps_utils import get_ddpm_params
 from function_diffusion.models.cond_unet import VEPrecond
 
 from burgers.data_utils import create_dataset
-from burgers.diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
+from burgers.cond_diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
 
 def create_train_state(config, model, tx):
     # Initialize the model if the params are not provided, otherwise use the provided params to create the state
