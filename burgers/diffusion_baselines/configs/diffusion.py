@@ -56,9 +56,6 @@ def get_base_config():
     ve.sigma_min = 8e-2
     ve.sigma_max = 80.
 
-    # DiffusionPDE
-    # sigma_min: 0.002
-    # sigma_max: 80
 
     # edm
     config.edm = edm = ml_collections.ConfigDict()

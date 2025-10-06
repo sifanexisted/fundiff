@@ -67,7 +67,6 @@ class Unet(nn.Module):
         temb = TimeProjection(features=self.emb_features)(temb)
 
         if context is not None:
-
             context = PatchEmbed(patch_size=(16, 16), emb_dim=self.emb_features)(context)
             _, TS, TC = context.shape
 
@@ -253,7 +252,7 @@ class Unet(nn.Module):
             dtype=self.dtype,
             precision=self.precision
         )(x)
-        return noise_out#, attentions
+        return noise_out #, attentions
 
 
 key = jax.random.PRNGKey(0xD3)
