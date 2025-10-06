@@ -81,7 +81,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
             loss_type='rel2',
             is_pred_x0=config.ddpm.is_pred_x0,
             use_pde_loss=config.use_pde_loss,
-            pde_loss_weight=0.1,
+            pde_loss_weight=0.001,
             get_pde_residual=get_burgers_res
         )
 
