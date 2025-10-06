@@ -86,7 +86,7 @@ def create_ddpm_loss_fn(model, ddpm_params,
         target = noise if not is_pred_x0 else x
 
         # Model prediction
-        pred = model.apply(params, x_t, sigma)
+        pred = model.apply(params, x_t, sigma, context=None)  # TODO: Make context optional
 
         # Base data loss
         data_loss = loss_fn(flatten(pred), flatten(target))
