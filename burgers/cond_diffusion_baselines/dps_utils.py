@@ -169,7 +169,7 @@ def create_ddpm_train_step(model, ddpm_params, mesh, loss_type='l2',
     return train_step
 
 
-def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_obs=320, zeta_pde=100, is_pred_x0=False, obs_guide=True, pde_guide=False):
+def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, context, num_steps, zeta_obs=320, zeta_pde=100, is_pred_x0=False, obs_guide=True, pde_guide=False):
     sigma_scalar = ddpm_params['sqrt_1m_alphas_bar'][t] # () scalar
     sigma_batch  = jnp.full((x.shape[0], 1, 1, 1), sigma_scalar) # (B,1,1,1)
 
@@ -179,7 +179,7 @@ def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_ob
 
     @jax.jit
     def loss_fn(x_in):
-        x0, v = model_predict(state, x_in, sigma_batch, ddpm_params, is_pred_x0)
+        x0, v = model_predict(state, x_in, sigma_batch, context, ddpm_params, is_pred_x0)
 
         obs_res = get_data_res(x0, batch_gt)
         pde_res = get_burgers_res(x0)
