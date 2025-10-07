@@ -40,6 +40,7 @@ from dps import VEPrecond
 from burgers.data_utils import create_dataset
 from burgers.cond_diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
 
+
 def create_train_state(config, model, tx):
     # Initialize the model if the params are not provided, otherwise use the provided params to create the state
     x = jnp.ones(config.x_dim)
@@ -47,11 +48,16 @@ def create_train_state(config, model, tx):
 
     if config.context_dim is not None:
         context = jnp.ones(config.context_dim)
+
     else:
         context = None
 
+    # context = jnp.ones((2, 256, 256, 1))  # hardcoded for burgers
     sigma = jnp.ones((config.x_dim[0],))
     params = model.init(random.PRNGKey(config.seed), x=x, sigma=sigma, context=context)
+
+    y = model.apply(params, x=x, sigma=sigma, context=context)
+    print("y shape:", y.shape)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     return state
 
