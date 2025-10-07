@@ -34,7 +34,8 @@ from function_diffusion.utils.dps_utils import create_edm_train_step, create_get
 from function_diffusion.utils.dps_utils import get_ddpm_params
 
 # from function_diffusion.models.dps import VEPrecond
-from function_diffusion.models.cond_unet import VEPrecond
+# from function_diffusion.models.cond_unet import VEPrecond
+from dps import VEPrecond
 
 from burgers.data_utils import create_dataset
 from burgers.cond_diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
