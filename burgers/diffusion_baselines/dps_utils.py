@@ -13,17 +13,31 @@ from jax import vmap, jit, lax, random
 from jax.experimental.shard_map import shard_map
 from jax.sharding import PartitionSpec as P
 
-from function_diffusion.utils.dps_utils import model_predict, get_posterior_mean_variance, l1_loss, l2_loss, rel2_loss, flatten
+import optax
+from flax.training import train_state
+from flax.core import FrozenDict
+from typing import Any
+
+def create_train_state(config, model, tx):
+    # Initialize the model if the params are not provided, otherwise use the provided params to create the state
+    x = jnp.ones(config.x_dim)
+    t = jnp.ones((config.x_dim[0],))
+
+    if config.cond_diffusion:
+        context = jnp.ones(config.x_dim)
+    else:
+        context = None
+
+    params = model.init(random.PRNGKey(config.seed), x=x, temb=t, context=context)
+    state = TrainState.create(apply_fn=model.apply,
+                              params=params,
+                              ema_params=params,
+                              ema_step_size=1 - 0.9995,
+                              tx=tx)
+    return state
 
 
-def get_data_res(u_pred, u_gt, mask=None):
-    res = u_pred - u_gt
-    if mask is not None:
-        res = (u_pred - u_gt) * mask[..., None] # (H,W)
-    return res
-
-
-def get_burgers_res(u, nu=0.001, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
+def get_burgers_res(u, nu=0.001, x0=0.0, x1=1.0, t0=0.0, t1=1.0):
     """
     Burgers PDE residual:
         r = u_t + u * u_x - nu * u_xx
@@ -34,8 +48,8 @@ def get_burgers_res(u, nu=0.001, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
     u: (B, nt, nx, C)
     """
     B, nt, nx, C = u.shape
-    dx = (x_hi - x_lo) / (nx - 1)
-    dt = (t_hi - t_lo) / (nt - 1)
+    dx = (x1 - x0) / (nx - 1)
+    dt = (t1 - t0) / (nt - 1)
 
     # time derivative (Euler at ends, central inside)
     u_t = jnp.gradient(u, dt, axis=1)
@@ -50,176 +64,299 @@ def get_burgers_res(u, nu=0.001, x_lo=0.0, x_hi=1.0, t_lo=0.0, t_hi=1.0):
     return res
 
 
-def create_ddpm_loss_fn(model, ddpm_params,
-                        loss_type: str = 'l2',
-                        is_pred_x0: bool = False,
-                        use_pde_loss: bool = False,
-                        pde_loss_weight: float = 1e-3,
-                        get_pde_residual=None):
-    """
-    Create DDPM loss function with optional physics-informed PDE residual.
+class TrainState(train_state.TrainState):
+    ema_params: FrozenDict[str, Any]
+    ema_step_size: float
 
-    Args:
-        model: neural network model
-        ddpm_params: dict containing diffusion parameters
-        loss_type: 'l1', 'l2', or 'rel2'
-        is_pred_x0: whether the model predicts x0 (True) or noise (False)
-        use_pde_loss: if True, include PDE residual term
-        pde_loss_weight: scalar weight for PDE loss contribution
-        get_pde_residual: function handle that takes x0_est and returns PDE residual
-    """
-
-    if loss_type == 'l1':
-        loss_fn = l1_loss
-    elif loss_type == 'l2':
-        loss_fn = l2_loss
-    elif loss_type == 'rel2':
-        loss_fn = rel2_loss
-    else:
-        raise NotImplementedError(f'Loss type {loss_type} not supported')
-
-    def ddpm_loss(params, batch):
-        x, x_t, sigma, batched_t, noise = batch
-        B = x_t.shape[0]
-
-        # Target: either original image (x) or noise
-        target = noise if not is_pred_x0 else x
-
-        # Model prediction
-        pred = model.apply(params, x_t, sigma)
-
-        # Base data loss
-        data_loss = loss_fn(flatten(pred), flatten(target))
-        assert data_loss.shape == (B,)
-
-        # PDE residual loss (optional)
-        pde_loss = 0.0
-        if use_pde_loss and (get_pde_residual is not None):
-            # Estimate x0 if predicting noise
-            if not is_pred_x0:
-                alpha_bar_t = ddpm_params['alphas_bar'][batched_t]
-                sqrt_alpha_bar = jnp.sqrt(alpha_bar_t)[..., None, None, None]
-                sigma_t = jnp.sqrt(1.0 - alpha_bar_t)[..., None, None, None]
-                x0_est = (x_t - sigma_t * pred) / sqrt_alpha_bar
-            else:
-                x0_est = pred  # already x0
-
-            pde_res = get_pde_residual(x0_est)   # user-defined PDE operator
-            pde_loss = jnp.mean(pde_res**2)
-
-        # Apply P2 loss weighting if available
-        if 'p2_loss_weight' in ddpm_params:
-            p2_loss_weight = ddpm_params['p2_loss_weight']
-            data_loss = data_loss * p2_loss_weight[batched_t]
-
-        # Total
-        total_loss = data_loss.mean() + (pde_loss_weight * pde_loss.mean() if use_pde_loss else 0.0)
-        return total_loss
-
-    return ddpm_loss
+    def apply_gradients(self, *, grads, **kwargs):
+        next_state = super().apply_gradients(grads=grads, **kwargs)
+        new_ema_params = optax.incremental_update(
+            new_tensors=next_state.params,
+            old_tensors=self.ema_params,
+            step_size=self.ema_step_size,
+        )
+        return next_state.replace(ema_params=new_ema_params)
 
 
+class Diffuser:
+    def __init__(self, eps_fn,  pde_res_fn, diffusion_config):
+        self.eps_fn = eps_fn
+        self.pde_res_fn = pde_res_fn
+        self.config = diffusion_config
+        self.betas = jnp.asarray(self._betas(**diffusion_config))
+        self.alphas = jnp.asarray(self._alphas(self.betas))
+        self.alpha_bars = jnp.asarray(self._alpha_bars(self.alphas))
 
-def create_ddpm_train_step(model, ddpm_params, mesh, loss_type='l2',
-                           is_pred_x0=False,
-                           use_pde_loss=False,
-                           pde_loss_weight=0.1,
-                           get_pde_residual=get_burgers_res):
-    """Create DDPM training step with JAX sharding"""
+    @property
+    def steps(self) -> int:
+        return self.config.T
 
-    ddpm_loss_fn = create_ddpm_loss_fn(
-        model, ddpm_params, loss_type, is_pred_x0, use_pde_loss, pde_loss_weight, get_pde_residual=get_pde_residual
-    )
+    def timesteps(self, steps: int):
+        timesteps = jnp.linspace(0, self.steps, steps + 1)
+        timesteps = jnp.rint(timesteps).astype(jnp.int32)
+        return timesteps[::-1]
+
+    @partial(jax.jit, static_argnums=(0,))
+    def forward(self, x_0, rng):
+        """See algorithm 1 in https://arxiv.org/pdf/2006.11239.pdf"""
+        rng1, rng2 = random.split(rng)
+        t = random.randint(rng1, (len(x_0), 1), 0, self.steps)
+        x_t, eps = self.sample_q(x_0, t, rng2)
+        t = t.astype(x_t.dtype)
+        return x_t, t, eps
+
+    def sample_q(self, x_0, t, rng):
+        """Samples x_t given x_0 by the q(x_t|x_0) formula."""
+        # (bs, 1)
+        alpha_t_bar = self.alpha_bars[t]
+        # (bs, 1, 1, 1)
+        alpha_t_bar = jnp.expand_dims(alpha_t_bar, (1, 2))
+
+        eps = random.normal(rng, shape=x_0.shape, dtype=x_0.dtype)
+        x_t = (alpha_t_bar ** 0.5) * x_0 + ((1 - alpha_t_bar) ** 0.5) * eps
+        return x_t, eps
+
+    @partial(jax.jit, static_argnums=(0,))
+    def ddpm_backward_step(self, params, x_t, t, rng, context):
+        """See algorithm 2 in https://arxiv.org/pdf/2006.11239.pdf"""
+        alpha_t = self.alphas[t]
+        alpha_t_bar = self.alpha_bars[t]
+        sigma_t = self.betas[t] ** 0.5
+
+        z = (t > 0) * random.normal(rng, shape=x_t.shape, dtype=x_t.dtype)
+        eps = self.eps_fn(params, x_t, t, context)
+
+        x = (1 / alpha_t ** 0.5) * (
+                x_t - ((1 - alpha_t) / (1 - alpha_t_bar) ** 0.5) * eps
+        ) + sigma_t * z
+
+        return x
+
+    def ddpm_backward(self, params, x_T, rng):
+        x = x_T
+
+        for t in range(self.steps - 1, -1, -1):
+            rng, rng_ = random.split(rng)
+            x = self.ddpm_backward_step(params, x, t, rng_)
+
+        return x
+
+
+    @partial(jax.jit, static_argnums=(0,))
+    def ddim_backward_step(
+            self, params, x_t, t, t_next, context=None
+    ):
+        """See section 4.1 and C.1 in https://arxiv.org/pdf/2010.02502.pdf
+
+        Note: alpha in the DDIM paper is actually alpha_bar in DDPM paper
+        """
+        alpha_t = self.alpha_bars[t]
+        alpha_t_next = self.alpha_bars[t_next]
+
+        eps = self.eps_fn(params, x_t, t, context=context)
+
+        x_0 = (x_t - (1 - alpha_t) ** 0.5 * eps) / alpha_t ** 0.5
+        x_t_direction = (1 - alpha_t_next) ** 0.5 * eps
+        x_t_next = alpha_t_next ** 0.5 * x_0 + x_t_direction
+
+        return x_t_next
+
+    def ddim_backward(self, params, x_T, steps, context=None):
+        x = x_T
+
+        ts = self.timesteps(steps)
+        for t, t_next in zip(ts[:-1], ts[1:]):
+            x = self.ddim_backward_step(params, x, t, t_next, context=context)
+
+        return x
+
+    def x0_from_xt_eps(self, x_t, eps, alpha_bar_t):
+        # \hat x_0 = (x_t - sqrt(1 - \bar{alpha}_t) * eps) / sqrt(\bar{alpha}_t)
+        return (x_t - jnp.sqrt(1.0 - alpha_bar_t) * eps) / jnp.sqrt(alpha_bar_t)
+
+    @partial(jax.jit, static_argnums=(0,))
+    def dps_backward_step(self, params, x_t, t, obs, scale, rng, context=None):
+        alpha_t = self.alphas[t]
+        alpha_t_bar = self.alpha_bars[t]
+        sigma_t = self.betas[t] ** 0.5
+
+        # Predict epsilon and form DDPM mean (Ho et al. 2020)
+        eps = self.eps_fn(params, x_t, t, context)
+
+        mean_t = (1.0 / jnp.sqrt(alpha_t)) * (
+                x_t - ((1.0 - alpha_t) / jnp.sqrt(1.0 - alpha_t_bar + 1e-12)) * eps
+        )
+
+        x0_hat = self.x0_from_xt_eps(x_t, eps, alpha_t_bar)
+
+        def loss_fn(x0):
+            return jnp.mean((x0 - obs) ** 2)
+
+        g_x0 = jax.grad(loss_fn)(x0_hat)
+
+        g_x0 = g_x0 / (jnp.linalg.norm(g_x0) + 1e-8)
+        g_xt = g_x0 / jnp.sqrt(alpha_t_bar + 1e-12)
+
+        # DPS strength schedule; common simple choice scales with sigma_t^2
+        eta_t = scale * (sigma_t ** 2)
+
+        # Shift mean toward data consistency
+        mean_t = mean_t - eta_t * g_xt
+
+        # Sample (noise only if t > 0)
+        noise = random.normal(rng, shape=x_t.shape, dtype=x_t.dtype)
+        z = jnp.where(t > 0, noise, jnp.zeros_like(noise))
+
+        x = mean_t + sigma_t * z
+
+        return x
+
+    def dps_backward(self, params, x_T, obs, scale, rng, context=None):
+        x = x_T
+
+        for t in range(self.steps - 1, -1, -1):
+            t = jnp.array(t, dtype=jnp.int32)
+            rng, rng_ = random.split(rng)
+            x = self.dps_backward_step(params, x, t, obs, scale, rng_, context)
+
+        return x
+
+    @partial(jax.jit, static_argnums=(0,))
+    def dps_backward_step_with_pde(self, params, x_t, t, obs, w_obs, w_pde, rng):
+        alpha_t = self.alphas[t]
+        alpha_t_bar = self.alpha_bars[t]
+        sigma_t = self.betas[t] ** 0.5
+
+        # Predict epsilon and form DDPM mean (Ho et al. 2020)
+        eps = self.eps_fn(params, x_t, t)
+
+        mean_t = (1.0 / jnp.sqrt(alpha_t)) * (
+                x_t - ((1.0 - alpha_t) / jnp.sqrt(1.0 - alpha_t_bar + 1e-12)) * eps
+        )
+
+        x0_hat = self.x0_from_xt_eps(x_t, eps, alpha_t_bar)
+
+        def loss_obs(x0):
+            return jnp.mean((x0 - obs) ** 2)
+
+        def loss_pde(x0):
+            res = self.pde_res_fn(x0)
+            return jnp.mean(res ** 2)
+
+        g_obs_x0 = jax.grad(loss_obs)(x0_hat)
+        g_obs_x0 = g_obs_x0 / (jnp.linalg.norm(g_obs_x0) + 1e-8)
+        g_obs_xt = g_obs_x0 / jnp.sqrt(alpha_t_bar + 1e-12)
+
+        g_pde_x0 = jax.grad(loss_pde)(x0_hat)
+        g_pde_x0 = g_pde_x0 / (jnp.linalg.norm(g_pde_x0) + 1e-8)
+        g_pde_xt = g_pde_x0 / jnp.sqrt(alpha_t_bar + 1e-12)
+
+        # DPS strength schedule; common simple choice scales with sigma_t^2
+        # Shift mean toward data consistency
+        mean_t = mean_t - sigma_t ** 2 * (w_obs * g_obs_xt + w_pde * g_pde_xt)
+
+        # Sample (noise only if t > 0)
+        noise = random.normal(rng, shape=x_t.shape, dtype=x_t.dtype)
+        z = jnp.where(t > 0, noise, jnp.zeros_like(noise))
+
+        x = mean_t + sigma_t * z
+
+        return x
+
+    def dps_backward_with_pde(self, params, x_T, obs, w_obs, w_pde, rng):
+        x = x_T
+
+        for t in range(self.steps - 1, -1, -1):
+            t = jnp.array(t, dtype=jnp.int32)
+            rng, rng_ = random.split(rng)
+
+            if t < 0.8 * self.steps:
+                x = self.dps_backward_step_with_pde(params, x, t, obs, w_obs, 0.0, rng_)
+            if t >= 0.8 * self.steps:
+                x = self.dps_backward_step_with_pde(params, x, t, obs, w_obs / 10, w_pde, rng_)
+
+        return x
+
+    @classmethod
+    def _betas(cls, beta_1: float, beta_T: float, T: int):
+        return jnp.linspace(beta_1, beta_T, T, dtype=jnp.float32)
+
+    @classmethod
+    def _alphas(cls, betas):
+        return 1 - betas
+
+    @classmethod
+    def _alpha_bars(cls, alphas):
+        return jnp.cumprod(alphas)
+
+    @staticmethod
+    def expand_t(t, x):
+        return jnp.full((len(x), 1), t, dtype=x.dtype)
+
+
+def create_step_fn(dfiffuser, mesh):
 
     @jax.jit
     @partial(
         shard_map,
         mesh=mesh,
-        in_specs=(P(), P("batch")),
-        out_specs=(P(), P()),
+        in_specs=(P(), P("batch"), P()),
+        out_specs=(P(), P(), P()),
+        check_rep=False,
     )
-    def train_step(state, batch):
-        # Compute gradients
-        grad_fn = jax.value_and_grad(ddpm_loss_fn, has_aux=False)
-        loss, grads = grad_fn(state.params, batch)
+    def train_step(state, batch, rng):
+        def loss_fn(params, batch, rng):
+            x_0, context = batch
+            rng, step_rng = random.split(rng)
+            x_t, t, eps = dfiffuser.forward(x_0, step_rng)
+            eps_pred = dfiffuser.eps_fn(params, x_t, t, context=context)
+            loss = jnp.mean((eps - eps_pred) ** 2)
+            return loss, rng
 
-        # Average across devices
-        grads = lax.pmean(grads, "batch")
-        loss = lax.pmean(loss, "batch")
-
-        # Update parameters
+        grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+        (loss, rng), grads = grad_fn(state.params, batch, rng)
+        grads = jax.lax.pmean(grads, axis_name="batch")
         state = state.apply_gradients(grads=grads)
-        return state, loss
+        return state, loss, rng
 
     return train_step
 
 
-def ddpm_sample_step(state, rng, x, t, batch_gt, ddpm_params, num_steps, zeta_obs=320, zeta_pde=100, is_pred_x0=False, obs_guide=True, pde_guide=False):
-    sigma_scalar = ddpm_params['sqrt_1m_alphas_bar'][t] # () scalar
-    sigma_batch  = jnp.full((x.shape[0], 1, 1, 1), sigma_scalar) # (B,1,1,1)
-
-    eps = 1e-5
-    max_norm = 1e3
-    max_grad = 1.0
-
-    @jax.jit
-    def loss_fn(x_in):
-        x0, v = model_predict(state, x_in, sigma_batch, ddpm_params, is_pred_x0)
-
-        obs_res = get_data_res(x0, batch_gt)
-        pde_res = get_burgers_res(x0)
-
-        obs_loss = jnp.linalg.norm(obs_res)
-        pde_loss = jnp.linalg.norm(pde_res)
-
-        return obs_loss, pde_loss, x0, v
-
-    @jax.jit
-    def obs_loss_fn(x_in):
-        obs_loss, _, _, _ = loss_fn(x_in)
-        return obs_loss
-
-    @jax.jit
-    def pde_loss_fn(x_in):
-        _, pde_loss, _, _ = loss_fn(x_in)
-        return pde_loss
-
-    # compute grads separately
-    (obs_loss, pde_loss, x0, v) = loss_fn(x)
-
-    obs_grads = jax.grad(obs_loss_fn)(x)
-    pde_grads = jax.grad(pde_loss_fn)(x)
-
-    def clip_grad(g):
-        g_norm = jnp.linalg.norm(g)
-        return g * (max_norm / jnp.maximum(g_norm, max_norm))
-
-    obs_grads = clip_grad(obs_grads)
-    pde_grads = clip_grad(pde_grads)
-
-    # guidance update
-    def early_step(x0):
-        # only obs guidance in early steps
-        return x0 - zeta_obs * obs_grads if obs_guide else x0
-
-    def late_step(x0):
-        x_new = x0
-        if obs_guide:
-            x_new = x_new - (zeta_obs) * obs_grads
-        if pde_guide:
-            x_new = x_new - zeta_pde * pde_grads - (zeta_obs / 10.0) * obs_grads
-        return x_new
-
-    if not obs_guide and not pde_guide:
-        # unconditional: no guidance
-        x0_guided = x0
-    else:
-        x0_guided = jax.lax.cond(t <= 0.8 * num_steps, early_step, late_step, x0)
-
-    # posterior sampling
-    post_mean, post_logvar = get_posterior_mean_variance(x, t, x0_guided, v, ddpm_params)
-    noise = jax.random.normal(rng, x.shape)
-    x_next = post_mean + jnp.exp(0.5 * post_logvar) * noise
-
-    return x_next, x0_guided
-
+# def create_step_fn(dfiffuser, mesh, config):
+#
+#     @jax.jit
+#     @partial(
+#         shard_map,
+#         mesh=mesh,
+#         in_specs=(P(), P("batch"), P()),
+#         out_specs=(P(), P(), P()),
+#         check_rep=False,
+#     )
+#     def train_step(state, batch, rng):
+#         def loss_fn(params, batch, rng):
+#             x_0, context = batch
+#             rng, step_rng = random.split(rng)
+#             x_t, t, eps = dfiffuser.forward(x_0, step_rng)
+#             eps_pred = dfiffuser.eps_fn(params, x_t, t, context=context)
+#             eps_loss = jnp.mean((eps - eps_pred) ** 2)
+#             loss = eps_loss
+#
+#             aux = (rng,)
+#
+#             if config.use_pde_loss:
+#                 x_0_est = dfiffuser.x0_from_xt_eps(x_t, eps, dfiffuser.alpha_bars[jnp.int32(t)].flatten())
+#                 pde_res = dfiffuser.pde_res_fn(x_0_est)
+#                 pde_loss = jnp.mean(pde_res ** 2)
+#
+#                 loss = eps_loss + config.pde_loss_weight * pde_loss
+#                 aux = (eps_loss, pde_loss, rng)
+#
+#             return loss, aux
+#
+#         grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+#         (loss, aux), grads = grad_fn(state.params, batch, rng)
+#         grads = jax.lax.pmean(grads, axis_name="batch")
+#         state = state.apply_gradients(grads=grads)
+#         return state, loss, aux
+#
+#     return train_step

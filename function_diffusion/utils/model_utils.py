@@ -6,7 +6,7 @@ from flax.training import train_state
 
 import optax
 
-from function_diffusion.models import UNet, ViT, FNO2d
+from function_diffusion.models import UNet, ViT, FNO2d, UNetConvNext, DPOT, AViT
 
 
 def create_optimizer(config):
@@ -37,6 +37,15 @@ def create_model(config):
 
     elif model_name.startswith("fno"):
         model = FNO2d(**config.model)
+
+    elif model_name.startswith("convnext"):
+        model = UNetConvNext(**config.model)
+
+    elif model_name.startswith("dpot"):
+        model = DPOT(**config.model)
+
+    elif model_name.startswith("avit"):
+        model = AViT(**config.model)
 
     else:
         raise ValueError(f"Unknown model name: {config.model_name}")

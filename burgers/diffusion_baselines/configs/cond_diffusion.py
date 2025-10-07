@@ -19,14 +19,16 @@ def get_base_config():
     config.seed = 42
 
     # Input shape for initializing Flax models
-    config.x_dim = [2, 256, 256, 1]
+    config.x_dim = [2, 128, 128, 1]
+    # config.context_dim = [2, 128, 128, 1]
 
     # Training or evaluation
     config.mode = "train_ddpm"  # options: train_ve | train_ddpm | train_edm
 
     # physics-informed training
     config.use_pde_loss = False
-    # config.physics_informed_sample = False
+    config.pde_loss_weight = 1e-3
+    config.cond_diffusion = True
 
     # Weights & Biases
     config.wandb = wandb = ml_collections.ConfigDict()
@@ -44,32 +46,11 @@ def get_base_config():
 
     # ddpm
     config.ddpm = ddpm = ml_collections.ConfigDict()
-    ddpm.beta_schedule = 'cosine'
-    ddpm.timesteps = 1000
-    ddpm.p2_loss_weight_gamma = 0.  # p2 loss weight, from https://arxiv.org/abs/2204.00227 - 0 is equivalent to weight of 1 across time - 1. is recommended
-    ddpm.p2_loss_weight_k = 1
-    ddpm.self_condition = True  # not tested yet
-    ddpm.is_pred_x0 = True  # by default, the model will predict noise, if True predict x0
+    ddpm.beta_1 = 1e-4
+    ddpm.beta_T = 0.02
+    ddpm.T = 1000
 
-    # ve
-    config.ve = ve = ml_collections.ConfigDict()
-    ve.sigma_min = 8e-2
-    ve.sigma_max = 80.
 
-    # DiffusionPDE
-    # sigma_min: 0.002
-    # sigma_max: 80
-
-    # edm
-    config.edm = edm = ml_collections.ConfigDict()
-    edm.timesteps = 1000
-    edm.P_mean = -1.2
-    edm.P_std = 1.2
-    edm.sigma_data = 0.5
-    edm.is_pred_x0 = False
-    edm.sigma_min = 0.002
-    edm.sigma_max = 80.0
-    edm.rho = 7
 
     # Learning rate
     config.lr = lr = ml_collections.ConfigDict()

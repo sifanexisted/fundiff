@@ -19,40 +19,20 @@ from function_diffusion.utils.model_utils import (
     create_optimizer,
     compute_total_params,
 )
-
-
 from function_diffusion.utils.checkpoint_utils import (
     create_checkpoint_manager,
     save_checkpoint,
 )
-
 from function_diffusion.utils.data_utils import create_dataloader
-
-from function_diffusion.utils.dps_utils import create_ddpm_train_step, create_get_ddpm_batch_fn
-from function_diffusion.utils.dps_utils import create_ve_train_step, create_get_ve_batch_fn
-from function_diffusion.utils.dps_utils import create_edm_train_step, create_get_edm_batch_fn
-from function_diffusion.utils.dps_utils import get_ddpm_params
-
-from function_diffusion.models.dps import VEPrecond
+from function_diffusion.models.cond_unet import Unet
 
 from burgers.data_utils import create_dataset
-from burgers.diffusion_baselines.dps_utils import get_burgers_res, create_ddpm_train_step
-
-def create_train_state(config, model, tx):
-    # Initialize the model if the params are not provided, otherwise use the provided params to create the state
-    x = jnp.ones(config.x_dim)
-    t = jnp.ones((config.x_dim[0],))
-
-    sigma = jnp.ones((config.x_dim[0],))
-    #params = model.init(random.PRNGKey(config.seed), x=x, time=t)
-    params = model.init(random.PRNGKey(config.seed), x=x, sigma=sigma)
-    state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
-    return state
+from dps_utils import create_step_fn, TrainState, Diffuser, get_burgers_res, create_train_state
 
 
 def train_and_evaluate(config: ml_collections.ConfigDict):
     # Initialize model
-    model = VEPrecond(**config.model)
+    model = Unet(**config.model)
     # Create learning rate schedule and optimizer
     lr, tx = create_optimizer(config)
 
@@ -71,33 +51,11 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
     mesh = Mesh(mesh_utils.create_device_mesh((jax.device_count(),)), "batch")
     state = multihost_utils.host_local_array_to_global_array(state, mesh, P())
 
-    if config.mode == "train_ddpm":
-        ddpm_params = get_ddpm_params(config.ddpm)
-        get_batch = create_get_ddpm_batch_fn(ddpm_params)
-        train_step = create_ddpm_train_step(
-            model,
-            ddpm_params,
-            mesh,
-            loss_type='rel2',
-            is_pred_x0=config.ddpm.is_pred_x0,
-            use_pde_loss=config.use_pde_loss,
-            pde_loss_weight=0.001,
-            get_pde_residual=get_burgers_res
-        )
+    def forward_fn(params, x, t, context=None):
+        return state.apply_fn(params, x, t.flatten(), context=context)
 
-    elif config.mode == "train_ve":
-        ve_params = config.ve
-        get_batch = create_get_ve_batch_fn(ve_params)
-        train_step = create_ve_train_step(
-            model, ve_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
-        )
-
-    elif config.mode == "train_edm":
-        edm_params = config.edm
-        get_batch = create_get_edm_batch_fn(edm_params)
-        train_step = create_edm_train_step(
-            model, edm_params, mesh, loss_type='rel2', is_pred_x0=config.ddpm.is_pred_x0
-        )
+    dfiffuser = Diffuser(forward_fn, get_burgers_res, config.ddpm)
+    train_step = create_step_fn(dfiffuser, mesh)
 
     train_dataset, test_dataset = create_dataset(config)
     train_loader = create_dataloader(train_dataset,
@@ -105,7 +63,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
                                      num_workers=config.dataset.num_workers)
 
     # Create checkpoint manager
-    job_name = f"{config.model.model_name}_pred_x0_{config.ddpm.is_pred_x0}_use_pde_{config.use_pde_loss}"
+    job_name = f"{config.model.model_name}_cond_{config.cond_diffusion}_use_pde_{config.use_pde_loss}"
     ckpt_path = os.path.join(os.getcwd(), job_name, "ckpt")
     if jax.process_index() == 0:
         if not os.path.isdir(ckpt_path):
@@ -132,16 +90,21 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
             rng_key, subkey = jax.random.split(rng_key)
 
             x = jax.tree.map(jnp.array, x)
+            if config.cond_diffusion:
+                downsample_factors = jnp.array([1, 2, 5])
+                random_downsample = jax.random.choice(subkey, downsample_factors)
+                x_downsampled = x[:, ::random_downsample, ::random_downsample]
+                context = jax.image.resize(x_downsampled, (x.shape[0], 128, 128, x.shape[-1]), method='bilinear')
+            else:
+                context = None
 
             x = jax.image.resize(x, (x.shape[0], 128, 128, x.shape[-1]), method='bilinear')
-
-
-            batch, rng_key = get_batch(subkey, x)
-
+            batch = (x, context)
             batch = multihost_utils.host_local_array_to_global_array(
                 batch, mesh, P("batch")
             )
-            state, loss = train_step(state, batch)
+
+            state, loss, rng_key = train_step(state, batch, rng_key)
 
         # Logging
         if epoch % config.logging.log_interval == 0:

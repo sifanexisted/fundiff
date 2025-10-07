@@ -15,6 +15,7 @@ from einops import rearrange, repeat
 
 from .common import kernel_init, ConvLayer, Downsample, Upsample, FourierEmbedding, TimeProjection, ResidualBlock
 from .attention import TransformerBlock
+from .vit import get_2d_sincos_pos_embed, SelfAttnBlock
 
 
 
@@ -39,11 +40,15 @@ class PatchEmbed(nn.Module):
             x = nn.LayerNorm(name="norm", epsilon=1e-5)(x)
         return x
 
+
+
+
 class Unet(nn.Module):
-    output_channels: int = 3
+    out_channels: int = 3
     emb_features: int = 64 * 4
     feature_depths: list = (64, 128, 256, 512)
     attention_configs: list = ({"heads": 8}, {"heads": 8}, {"heads": 8}, {"heads": 8})
+    num_enc_blocks: int = 4
     num_res_blocks: int = 2
     num_middle_res_blocks: int = 1
     activation: Callable = jax.nn.swish
@@ -51,6 +56,7 @@ class Unet(nn.Module):
     dtype: Optional[Dtype] = None
     precision: PrecisionLike = None
     named_norms: bool = False  # This is for backward compatibility reasons; older checkpoints have named norms
+    model_name: Optional[str] = None
 
     def setup(self):
         if self.norm_groups > 0:
@@ -67,8 +73,29 @@ class Unet(nn.Module):
         temb = TimeProjection(features=self.emb_features)(temb)
 
         if context is not None:
+            b, H, W, C = context.shape
+
             context = PatchEmbed(patch_size=(16, 16), emb_dim=self.emb_features)(context)
             _, TS, TC = context.shape
+
+            pos_emb = self.variable(
+                "pos_emb",
+                "enc_pos_emb",
+                get_2d_sincos_pos_embed,
+                self.emb_features,
+                (H // 16, W // 16),
+            )
+
+            context = context + pos_emb.value
+
+            for _i in range(self.num_enc_blocks):
+                context = SelfAttnBlock(
+                    num_heads=8,
+                    emb_dim=self.emb_features,
+                    mlp_ratio=1,
+                    layer_norm_eps=1e-5,
+                )(context)
+            context = nn.LayerNorm(epsilon=1e-5)(context)
 
         # print("time embedding", temb.shape)
         feature_depths = self.feature_depths
@@ -244,7 +271,7 @@ class Unet(nn.Module):
 
         noise_out = ConvLayer(
             conv_type,
-            features=self.output_channels,
+            features=self.out_channels,
             kernel_size=(3, 3),
             strides=(1, 1),
             # activation=jax.nn.mish
@@ -257,50 +284,3 @@ class Unet(nn.Module):
 
 key = jax.random.PRNGKey(0xD3)
 
-
-
-class VEPrecond(nn.Module):  # For both VE and DDPM
-    img_channels: int
-    emb_features: int = 64
-    feature_depths: tuple = (64, 128, 256, 512)
-    attention_configs: tuple = ({"heads": 8}, {"heads": 8}, {"heads": 8}, {"heads": 8})
-    num_res_blocks: int = 1
-    num_middle_res_blocks: int = 1
-    activation: Callable = jax.nn.swish
-    norm_groups: int = 8
-    model_name: Optional[str] = None
-
-    def setup(self):
-        self.model = Unet(
-            output_channels=self.img_channels,
-            emb_features=self.emb_features,
-            feature_depths=self.feature_depths,
-            attention_configs=self.attention_configs,
-            num_res_blocks=self.num_res_blocks,
-            num_middle_res_blocks=self.num_middle_res_blocks,
-            activation=self.activation,
-            norm_groups=self.norm_groups
-        )
-
-    def __call__(self, x, sigma, context):
-
-        sigma = sigma.astype(jnp.float32).reshape((-1, 1, 1, 1))  # (N,1,1,1)
-
-        # ---------- condition ----------
-        c_skip = 1.0
-        c_out = sigma
-        c_in = 1.0
-        c_noise = jnp.log(0.5 * sigma[..., 0, 0, 0])  # (N,)
-
-        # Forward your Unet: (x, temb, textcontext)
-        F_x = self.model(
-            c_in * x,
-            c_noise,           # temb (scalar per batch element)
-            context,       # NHWC or whatever you feed; your Unet does PatchEmbed internally if needed
-        )
-
-        D_x = c_skip * x + c_out * F_x
-        return D_x
-
-    def round_sigma(self, sigma):
-        return jnp.asarray(sigma, dtype=jnp.float32)
