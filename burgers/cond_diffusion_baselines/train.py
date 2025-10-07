@@ -138,9 +138,19 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
 
             x = jax.tree.map(jnp.array, x)
 
+
+            key1, key2 = jax.random.split(subkey)
+
+            downsample_factors = jnp.array([1, 2, 5])
+            random_downsample = jax.random.choice(key1, downsample_factors)
+
+            x_downsampled = x[:, ::random_downsample, ::random_downsample]
+            context = jax.image.resize(x_downsampled, (x.shape[0], 256, 256, x.shape[-1]), method='bilinear')
+
             x = jax.image.resize(x, (x.shape[0], 256, 256, x.shape[-1]), method='bilinear')
 
             batch, rng_key = get_batch(subkey, x)
+            batch = (batch, context)
 
             batch = multihost_utils.host_local_array_to_global_array(
                 batch, mesh, P("batch")

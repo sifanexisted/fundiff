@@ -16,10 +16,10 @@ from jax.sharding import PartitionSpec as P
 from function_diffusion.utils.dps_utils import get_posterior_mean_variance, l1_loss, l2_loss, rel2_loss, flatten, x0_to_noise, noise_to_x0
 
 
-def model_predict(state, x, sigma_batch, ddpm_params, is_pred_x0):
+def model_predict(state, x, sigma_batch, context, ddpm_params, is_pred_x0):
     sigma_batch = jnp.clip(sigma_batch, a_min=1e-5, a_max=1 - (1e-5))
     log_sigma = sigma_batch[..., 0, 0, 0]  # (B,) No log here TODO
-    pred = state.apply_fn(state.params, x, log_sigma, context=None)  #
+    pred = state.apply_fn(state.params, x, log_sigma, context=context)  #
 
     if is_pred_x0:
         x0_pred = pred
@@ -93,6 +93,7 @@ def create_ddpm_loss_fn(model, ddpm_params,
         raise NotImplementedError(f'Loss type {loss_type} not supported')
 
     def ddpm_loss(params, batch):
+        batch, context = batch
         x, x_t, sigma, batched_t, noise = batch
         B = x_t.shape[0]
 
@@ -100,7 +101,7 @@ def create_ddpm_loss_fn(model, ddpm_params,
         target = noise if not is_pred_x0 else x
 
         # Model prediction
-        pred = model.apply(params, x_t, sigma)  # TODO: Make context optional
+        pred = model.apply(params, x_t, sigma, context)  # TODO: Make context optional
 
         # Base data loss
         data_loss = loss_fn(flatten(pred), flatten(target))
