@@ -57,6 +57,7 @@ def create_train_state(config, model, tx):
     params = model.init(random.PRNGKey(config.seed), x=x, sigma=sigma, context=context)
 
     y = model.apply(params, x=x, sigma=sigma, context=context)
+    print("context shape:", context.shape)
     print("y shape:", y.shape)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
     return state
