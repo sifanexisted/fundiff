@@ -664,6 +664,8 @@ class VEPrecond(nn.Module): # For both VE and DDPM
             **self.model_kwargs,
         )
 
+        self.patch_embed= PatchEmbed(emb_dim=128, patch_size=(16,16))
+
     def __call__(self,
                  x: jnp.ndarray,  # [N, C, H, W]
                  sigma: jnp.ndarray, # [N] or scalar
@@ -675,7 +677,7 @@ class VEPrecond(nn.Module): # For both VE and DDPM
                  **apply_kwargs) -> jnp.ndarray:
 
         if context is not None:
-            context = PatchEmbed(emb_dim=128, patch_size=(16,16))(context)
+            context = self.patch_embed(context)
         
         x = rearrange(x, "n h w c -> n c h w")
 
