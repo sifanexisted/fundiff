@@ -27,6 +27,7 @@ def get_base_config():
 
     # physics-informed training
     config.use_pde_loss = False
+    config.pde_loss_weight = 1e-3
     config.cond_diffusion = True
 
     # Weights & Biases

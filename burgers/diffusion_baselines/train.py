@@ -27,26 +27,7 @@ from function_diffusion.utils.data_utils import create_dataloader
 from function_diffusion.models.cond_unet import Unet
 
 from burgers.data_utils import create_dataset
-from dps_utils import create_step_fn, TrainState, Diffuser, get_burgers_res
-
-
-def create_train_state(config, model, tx):
-    # Initialize the model if the params are not provided, otherwise use the provided params to create the state
-    x = jnp.ones(config.x_dim)
-    t = jnp.ones((config.x_dim[0],))
-
-    if config.cond_diffusion:
-        context = jnp.ones(config.x_dim)
-    else:
-        context = None
-
-    params = model.init(random.PRNGKey(config.seed), x=x, temb=t, context=context)
-    state = TrainState.create(apply_fn=model.apply,
-                              params=params,
-                              ema_params=params,
-                              ema_step_size=1 - 0.9995,
-                              tx=tx)
-    return state
+from dps_utils import create_step_fn, TrainState, Diffuser, get_burgers_res, create_train_state
 
 
 def train_and_evaluate(config: ml_collections.ConfigDict):

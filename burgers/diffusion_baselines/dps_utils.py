@@ -18,6 +18,24 @@ from flax.training import train_state
 from flax.core import FrozenDict
 from typing import Any
 
+def create_train_state(config, model, tx):
+    # Initialize the model if the params are not provided, otherwise use the provided params to create the state
+    x = jnp.ones(config.x_dim)
+    t = jnp.ones((config.x_dim[0],))
+
+    if config.cond_diffusion:
+        context = jnp.ones(config.x_dim)
+    else:
+        context = None
+
+    params = model.init(random.PRNGKey(config.seed), x=x, temb=t, context=context)
+    state = TrainState.create(apply_fn=model.apply,
+                              params=params,
+                              ema_params=params,
+                              ema_step_size=1 - 0.9995,
+                              tx=tx)
+    return state
+
 
 def get_burgers_res(u, nu=0.001, x0=0.0, x1=1.0, t0=0.0, t1=1.0):
     """
@@ -302,3 +320,43 @@ def create_step_fn(dfiffuser, mesh):
         return state, loss, rng
 
     return train_step
+
+
+# def create_step_fn(dfiffuser, mesh, config):
+#
+#     @jax.jit
+#     @partial(
+#         shard_map,
+#         mesh=mesh,
+#         in_specs=(P(), P("batch"), P()),
+#         out_specs=(P(), P(), P()),
+#         check_rep=False,
+#     )
+#     def train_step(state, batch, rng):
+#         def loss_fn(params, batch, rng):
+#             x_0, context = batch
+#             rng, step_rng = random.split(rng)
+#             x_t, t, eps = dfiffuser.forward(x_0, step_rng)
+#             eps_pred = dfiffuser.eps_fn(params, x_t, t, context=context)
+#             eps_loss = jnp.mean((eps - eps_pred) ** 2)
+#             loss = eps_loss
+#
+#             aux = (rng,)
+#
+#             if config.use_pde_loss:
+#                 x_0_est = dfiffuser.x0_from_xt_eps(x_t, eps, dfiffuser.alpha_bars[jnp.int32(t)].flatten())
+#                 pde_res = dfiffuser.pde_res_fn(x_0_est)
+#                 pde_loss = jnp.mean(pde_res ** 2)
+#
+#                 loss = eps_loss + config.pde_loss_weight * pde_loss
+#                 aux = (eps_loss, pde_loss, rng)
+#
+#             return loss, aux
+#
+#         grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
+#         (loss, aux), grads = grad_fn(state.params, batch, rng)
+#         grads = jax.lax.pmean(grads, axis_name="batch")
+#         state = state.apply_gradients(grads=grads)
+#         return state, loss, aux
+#
+#     return train_step
