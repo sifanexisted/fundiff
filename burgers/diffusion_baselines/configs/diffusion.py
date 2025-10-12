@@ -19,7 +19,7 @@ def get_base_config():
     config.seed = 42
 
     # Input shape for initializing Flax models
-    config.x_dim = [2, 128, 128, 1]
+    config.x_dim = [2, 256, 256, 1]
     # config.context_dim = [2, 128, 128, 1]
 
     # Training or evaluation

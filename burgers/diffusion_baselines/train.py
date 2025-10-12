@@ -25,9 +25,9 @@ from function_diffusion.utils.checkpoint_utils import (
 )
 from function_diffusion.utils.data_utils import create_dataloader
 from function_diffusion.models.cond_unet import Unet
-
+from function_diffusion.utils.dps_utils import create_step_fn, Diffuser, get_burgers_res, create_train_state
 from burgers.data_utils import create_dataset
-from dps_utils import create_step_fn, TrainState, Diffuser, get_burgers_res, create_train_state
+from dps_utils import get_burgers_res
 
 
 def train_and_evaluate(config: ml_collections.ConfigDict):
@@ -94,11 +94,11 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
                 downsample_factors = jnp.array([1, 2, 5])
                 random_downsample = jax.random.choice(subkey, downsample_factors)
                 x_downsampled = x[:, ::random_downsample, ::random_downsample]
-                context = jax.image.resize(x_downsampled, (x.shape[0], 128, 128, x.shape[-1]), method='bilinear')
+                context = jax.image.resize(x_downsampled, (x.shape[0], 256, 256, x.shape[-1]), method='bilinear')
             else:
                 context = None
 
-            x = jax.image.resize(x, (x.shape[0], 128, 128, x.shape[-1]), method='bilinear')
+            x = jax.image.resize(x, (x.shape[0], 256, 256, x.shape[-1]), method='bilinear')
             batch = (x, context)
             batch = multihost_utils.host_local_array_to_global_array(
                 batch, mesh, P("batch")
