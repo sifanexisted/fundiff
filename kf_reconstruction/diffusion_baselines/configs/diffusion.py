@@ -19,11 +19,10 @@ def get_base_config():
     config.seed = 42
 
     # Input shape for initializing Flax models
-    config.x_dim = [2, 128, 128, 1]
-    # config.context_dim = [2, 128, 128, 1]
+    config.x_dim = [2, 256, 256, 2]
 
     # Training or evaluation
-    config.mode = "train_ddpm"  # options: train_ve | train_ddpm | train_edm
+    config.mode = "train_ddpm"
 
     # physics-informed training
     config.use_pde_loss = False
@@ -36,10 +35,9 @@ def get_base_config():
 
     # Dataset
     config.dataset = dataset = ml_collections.ConfigDict()
-    dataset.data_path = "/scratch/sifanw/transformer_as_integrator/burgers/burger_nu_1e-3.mat"
+    dataset.data_path = "/scratch/sifanw/fundiff/kf_reconstruction/kolmogorov_data.npy"
     dataset.downsample_factor = 1
-    dataset.num_train_samples = 3600
-    dataset.train_batch_size = 32  # Per device
+    dataset.train_batch_size = 16  # Per device
     dataset.test_batch_size = 4  # Per device
     dataset.num_workers = 8
 
@@ -48,7 +46,6 @@ def get_base_config():
     ddpm.beta_1 = 1e-4
     ddpm.beta_T = 0.02
     ddpm.T = 1000
-
 
 
     # Learning rate
