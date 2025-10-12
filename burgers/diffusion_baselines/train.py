@@ -25,7 +25,7 @@ from function_diffusion.utils.checkpoint_utils import (
 )
 from function_diffusion.utils.data_utils import create_dataloader
 from function_diffusion.models.cond_unet import Unet
-from function_diffusion.utils.dps_utils import create_step_fn, Diffuser, get_burgers_res, create_train_state
+from function_diffusion.utils.dps_utils import create_step_fn, Diffuser, create_train_state
 from burgers.data_utils import create_dataset
 from dps_utils import get_burgers_res
 
