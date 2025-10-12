@@ -44,7 +44,7 @@ class PatchEmbed(nn.Module):
 
 
 class Unet(nn.Module):
-    out_channels: int = 3
+    out_dim: int = 3
     emb_features: int = 64 * 4
     feature_depths: list = (64, 128, 256, 512)
     attention_configs: list = ({"heads": 8}, {"heads": 8}, {"heads": 8}, {"heads": 8})
@@ -271,7 +271,7 @@ class Unet(nn.Module):
 
         noise_out = ConvLayer(
             conv_type,
-            features=self.out_channels,
+            features=self.out_dim,
             kernel_size=(3, 3),
             strides=(1, 1),
             # activation=jax.nn.mish
