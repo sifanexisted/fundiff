@@ -287,9 +287,9 @@ class Diffuser:
         return jnp.clip(betas, clamp_min, 0.999)
 
     @classmethod
-    def _betas(cls, T, schedule='linear', beta_1=None, beta_T=None, **kwargs):
+    def _betas(cls, T, schedule='linear', **kwargs):
         if schedule == 'linear':
-            return cls._linear_schedule(T, beta_1, beta_T)
+            return cls._linear_schedule(T, **kwargs)
         elif schedule == 'cosine':
             return cls._cosine_schedule(T, **kwargs)
         elif schedule == 'sigmoid':
