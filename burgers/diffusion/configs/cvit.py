@@ -19,38 +19,30 @@ def get_base_config():
     config.seed = 42
 
     # Input shape for initializing Flax models
-    config.x_dim = [2, 256, 256, 2]
+    config.x_dim = [2, 256, 256, 1]
+    config.coords_dim = [2,]  # Only for initializing CViT model
 
     # Training or evaluation
-    config.mode = "train_ddpm"
-
-    # physics-informed training
-    config.use_pde_loss = False
-    config.cond_diffusion = False
+    config.mode = "train_cvit"
 
     # Weights & Biases
     config.wandb = wandb = ml_collections.ConfigDict()
-    wandb.project = "fundiff_kf"
+    wandb.project = "fundiff_burgers"
     wandb.tag = None
 
     # Dataset
     config.dataset = dataset = ml_collections.ConfigDict()
-    dataset.data_path = "/scratch/sifanw/fundiff/kf_reconstruction/kolmogorov_data.npy"
+    dataset.data_path = "/scratch/sifanw/transformer_as_integrator/burgers/burger_nu_1e-3.mat"
     dataset.downsample_factor = 1
+    dataset.num_train_samples = 3600
     dataset.train_batch_size = 16  # Per device
     dataset.test_batch_size = 4  # Per device
     dataset.num_workers = 8
 
-    # ddpm
-    config.ddpm = ddpm = ml_collections.ConfigDict()
-    ddpm.T = 1000
-    ddpm.schedule = 'linear'  # options: linear, cosine, sigmoid
-
-
     # Learning rate
     config.lr = lr = ml_collections.ConfigDict()
     lr.init_value = 0.0
-    lr.peak_value = 1e-4
+    lr.peak_value = 1e-3
     lr.decay_rate = 0.9
     lr.transition_steps = 2000
     lr.warmup_steps = 2000
@@ -66,14 +58,17 @@ def get_base_config():
     # Training
     config.training = training = ml_collections.ConfigDict()
     training.max_steps = 1 * 10**5
+    training.num_queries = 4096
+    # training.random_resolution = True
+    # training.use_pde = False
 
     # Logging
     config.logging = logging = ml_collections.ConfigDict()
-    logging.log_interval = 5
+    logging.log_interval = 1
 
     # Saving
     config.saving = saving = ml_collections.ConfigDict()
-    saving.save_interval = 5
-    saving.num_keep_ckpts = 2
+    saving.save_interval = 2
+    saving.num_keep_ckpts = 1
 
     return config

@@ -1,11 +1,3 @@
-import jax.numpy as jnp
-import numpy as np
-import jax
-import math
-from PIL import Image
-import wandb
-from ml_collections import ConfigDict
-
 from functools import partial
 import jax
 import jax.numpy as jnp
@@ -50,7 +42,6 @@ def create_train_state(config, model, tx):
                               ema_step_size=1 - 0.9995,
                               tx=tx)
     return state
-
 
 
 class Diffuser:
@@ -107,12 +98,12 @@ class Diffuser:
 
         return x
 
-    def ddpm_backward(self, params, x_T, rng):
+    def ddpm_backward(self, params, x_T, rng, context=None):
         x = x_T
 
         for t in range(self.steps - 1, -1, -1):
             rng, rng_ = random.split(rng)
-            x = self.ddpm_backward_step(params, x, t, rng_)
+            x = self.ddpm_backward_step(params, x, t, rng_, context=context)
 
         return x
 
@@ -252,9 +243,142 @@ class Diffuser:
 
         return x
 
+    @partial(jax.jit, static_argnums=(0,))
+    def dps_ddim_backward_step(
+            self, params, x_t, t, t_next, obs, scale, context=None
+    ):
+        """
+        DDIM backward step with data-consistency correction (DPS).
+
+        Reference:
+          - DDIM: https://arxiv.org/pdf/2010.02502.pdf (Sec. 4.1, App. C.1)
+          - DPS: https://arxiv.org/pdf/2303.09312.pdf
+        """
+        # --- DDIM alphas ---
+        alpha_t = self.alpha_bars[t]
+        alpha_t_next = self.alpha_bars[t_next]
+
+        # --- Predict noise and reconstruct x0 ---
+        eps = self.eps_fn(params, x_t, t, context=context)
+        x0_hat = (x_t - jnp.sqrt(1 - alpha_t) * eps) / jnp.sqrt(alpha_t)
+
+        # --- DPS gradient step on x0_hat ---
+        def loss_fn(x0):
+            return jnp.mean((x0 - obs) ** 2)
+
+        g_x0 = jax.grad(loss_fn)(x0_hat)
+        g_x0 = g_x0 / (jnp.linalg.norm(g_x0) + 1e-8)
+
+        # apply data-consistency correction
+        x0_corr = x0_hat - scale * g_x0
+
+        # --- DDIM deterministic update (η = 0) ---
+        x_t_direction = jnp.sqrt(1 - alpha_t_next) * eps
+        x_t_next = jnp.sqrt(alpha_t_next) * x0_corr + x_t_direction
+
+        return x_t_next
+
+    def dps_ddim_backward(self, params, x_T, steps, obs, scale, context=None):
+        x = x_T
+
+        ts = self.timesteps(steps)
+        for t, t_next in zip(ts[:-1], ts[1:]):
+            x = self.dps_ddim_backward_step(params, x, t, t_next, obs, scale, context)
+
+        return x
+
+    @partial(jax.jit, static_argnums=(0,))
+    def dps_ddim_backward_step_with_pde(self, params, x_t, t, t_next, obs, w_obs, w_pde, context=None):
+        alpha_t = self.alphas[t]
+        alpha_t_bar = self.alpha_bars[t]
+
+        # --- DDIM alphas ---
+        alpha_t = self.alpha_bars[t]
+        alpha_t_next = self.alpha_bars[t_next]
+
+        # --- Predict noise and reconstruct x0 ---
+        eps = self.eps_fn(params, x_t, t, context=context)
+        x0_hat = (x_t - jnp.sqrt(1 - alpha_t) * eps) / jnp.sqrt(alpha_t)
+
+        def loss_obs(x0):
+            return jnp.mean((x0 - obs) ** 2)
+
+        def loss_pde(x0):
+            res = self.pde_res_fn(x0)
+            return jnp.mean(res ** 2)
+
+        g_obs_x0 = jax.grad(loss_obs)(x0_hat)
+        g_obs_x0 = g_obs_x0 / (jnp.linalg.norm(g_obs_x0) + 1e-8)
+
+        g_pde_x0 = jax.grad(loss_pde)(x0_hat)
+        g_pde_x0 = g_pde_x0 / (jnp.linalg.norm(g_pde_x0) + 1e-8)
+
+        # apply data-consistency correction
+        x0_corr = x0_hat - w_obs * g_obs_x0 - w_pde * g_pde_x0
+
+        # --- DDIM deterministic update (η = 0) ---
+        x_t_direction = jnp.sqrt(1 - alpha_t_next) * eps
+        x_t_next = jnp.sqrt(alpha_t_next) * x0_corr + x_t_direction
+
+        return x_t_next
+
+    def dps_ddim_backward_with_pde(self, params, x_T, steps, obs, w_obs, w_pde):
+        x = x_T
+
+        ts = self.timesteps(steps)
+        for t, t_next in zip(ts[:-1], ts[1:]):
+
+            if t < 0.8 * self.steps:
+                x = self.dps_ddim_backward_step_with_pde(params, x, t, t_next, obs, w_obs, 0.0)
+            if t >= 0.8 * self.steps:
+                x = self.dps_ddim_backward_step_with_pde(params, x, t, t_next, obs, w_obs / 10, w_pde)
+
+        return x
     @classmethod
-    def _betas(cls, beta_1: float, beta_T: float, T: int):
+    def _linear_schedule(cls, T: int, beta_1=1e-4, beta_T=0.02):
+        '''original ddpm paper'''
         return jnp.linspace(beta_1, beta_T, T, dtype=jnp.float32)
+    
+    @classmethod
+    def _cosine_schedule(cls, T: int, s=0.008):
+        """
+        cosine schedule
+        as proposed in https://openreview.net/forum?id=-NEXDKk8gZ
+        """
+        steps = T + 1
+        t = jnp.linspace(0, T, steps, dtype=jnp.float32) / T
+        alpha_bars = jnp.cos((t + s) / (1.0 + s) * jnp.pi / 2) ** 2
+        alpha_bars = alpha_bars / alpha_bars[0]
+        betas = 1 - (alpha_bars[1:] / alpha_bars[:-1])
+        return jnp.clip(betas, 0, 0.999)
+    
+    @classmethod
+    def _sigmoid_beta_schedule(cls, T: int, start=-3, end=3, tau=1.0, clamp_min=1e-5):
+        """
+        sigmoid schedule
+        proposed in https://arxiv.org/abs/2212.11972 - Figure 8
+        better for images > 64x64, when used during training
+        """
+        steps = T + 1
+        t = jnp.linspace(0, T, steps, dtype=jnp.float32) / T
+        v_start = jnp.sigmoid(start / tau)
+        v_end = jnp.sigmoid(end / tau)
+        s_t = jnp.sigmoid(((t * (end - start) + start) / tau))
+        alpha_bars = (-(s_t) + v_end) / (v_end - v_start)
+        alpha_bars = alpha_bars / alpha_bars[0]
+        betas = 1.0 - (alpha_bars[1:] / alpha_bars[:-1])
+        return jnp.clip(betas, clamp_min, 0.999)
+
+    @classmethod
+    def _betas(cls, T, schedule='linear', **kwargs):
+        if schedule == 'linear':
+            return cls._linear_schedule(T, **kwargs)
+        elif schedule == 'cosine':
+            return cls._cosine_schedule(T, **kwargs)
+        elif schedule == 'sigmoid':
+            return cls._sigmoid_beta_schedule(T, **kwargs)
+        else:
+            raise ValueError(f"Unknown schedule: {schedule}. Choose from 'linear', 'cosine', or 'sigmoid'.")
 
     @classmethod
     def _alphas(cls, betas):

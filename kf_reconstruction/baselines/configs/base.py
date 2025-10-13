@@ -32,7 +32,7 @@ def get_base_config():
 
     # Dataset
     config.dataset = dataset = ml_collections.ConfigDict()
-    dataset.data_path = '/scratch/sifanw/function-diffusion-dev/kolmogorov_div_free_1/kolmogorov_data.npy'
+    dataset.data_path = "/scratch/sifanw/fundiff/kf_reconstruction/kolmogorov_data.npy"
     dataset.downsample_factor = 1
     dataset.train_batch_size = 16  # Per device
     dataset.test_batch_size = 4  # Per device

@@ -60,63 +60,6 @@ class PatchHandler:
         return x
 
 
-###################################################
-############# utils for diffusion models ##########
-###################################################
-
-
-# def create_train_diffusion_step(model, mesh):
-#     @jax.jit
-#     @partial(
-#         shard_map,
-#         mesh=mesh,
-#         in_specs=(P(), P("batch")),
-#         out_specs=(P(), P()),
-#     )
-#     def train_step(state, batch):
-#         def loss_fn(params):
-#             x, t, y = batch
-#             pred = model.apply(params, x, t)
-#             loss = jnp.mean((y - pred) ** 2)
-#             return loss
-#
-#         # Compute gradients and update parameters
-#         grad_fn = jax.value_and_grad(loss_fn, has_aux=False)
-#         loss, grads = grad_fn(state.params)
-#         grads = lax.pmean(grads, "batch")
-#         loss = lax.pmean(loss, "batch")
-#         state = state.apply_gradients(grads=grads)
-#         return state, loss
-#
-#     return train_step
-
-
-
-# @jit
-# def get_diffusion_batch(key, z1=None, c=None):
-#     key1, key2, key3 = random.split(key, 3)
-#     z0 = random.normal(key1, shape=z1.shape)
-#     t = random.uniform(key2, (z1.shape[0], 1, 1))
-#
-#     # z_t = t * z1 + (1. - t) * z0
-#     z_t = t * (z1 - z0) + z0
-#     target = z1 - z0
-#     batch = (z_t, t.flatten(), target)
-#
-#     return batch, key3
-
-
-# def sample_ode(state, z0=None, num_steps=None):
-#     dt = 1 / num_steps
-#     traj = [z0]
-#
-#     z = z0
-#     for i in tqdm(range(num_steps)):
-#         t = jnp.ones((z.shape[0],)) * i / num_steps
-#         pred = state.apply_fn(state.params, z, t)
-#         z = z + pred * dt
-#         traj.append(z)
-#     return z, traj
 
 
 def create_encoder_step(encoder, mesh):
@@ -133,6 +76,11 @@ def create_encoder_step(encoder, mesh):
         return z
 
     return encoder_step
+
+
+###################################################
+############# utils for diffusion models ##########
+###################################################
 
 
 def create_train_diffusion_step(model, mesh, use_conditioning=False):
@@ -172,8 +120,7 @@ def get_diffusion_batch(key, z1=None, c=None, use_conditioning=False):
     z0 = random.normal(keys[0], shape=z1.shape)  # (b, 200, 512)
     t = random.uniform(keys[1], (z1.shape[0], 1, 1))
 
-    # z_t = t * z1 + (1. - t) * z0
-    z_t = t * (z1 - z0) + z0
+    z_t = t * z1 + (1. - t) * z0
     target = z1 - z0
 
     if use_conditioning:

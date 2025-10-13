@@ -74,18 +74,6 @@ def create_autoencoder_state(config, encoder, decoder, tx):
     return state
 
 
-# def create_diffusion_state(config, model, tx):
-#     x = jnp.ones(config.z_dim)
-#     t = jnp.ones(config.t_dim)
-#     # Create conditional input only if c_dim is specified
-#     c = jnp.ones(config.c_dim) if hasattr(config, 'c_dim') and config.c_dim is not None else None
-#
-#     # Initialize model with or without conditional input
-#     params = model.init(random.PRNGKey(config.seed), x=x, t=t, c=c)
-#     state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
-#     return state
-
-
 def create_diffusion_state(config, model, tx, use_conditioning=False):
     x = jnp.ones(config.z_dim)
     t = jnp.ones(config.t_dim)
