@@ -251,10 +251,51 @@ class Diffuser:
                 x = self.dps_backward_step_with_pde(params, x, t, obs, w_obs / 10, w_pde, rng_)
 
         return x
+    @classmethod
+    def _linear_schedule(cls, T: int, beta_1=1e-4, beta_T=0.02):
+        '''original ddpm paper'''
+        return jnp.linspace(beta_1, beta_T, T, dtype=jnp.float32)
+    
+    @classmethod
+    def _cosine_schedule(cls, T: int, s=0.008):
+        """
+        cosine schedule
+        as proposed in https://openreview.net/forum?id=-NEXDKk8gZ
+        """
+        steps = T + 1
+        t = jnp.linspace(0, T, steps, dtype=jnp.float32) / T
+        alpha_bars = jnp.cos((t + s) / (1.0 + s) * jnp.pi / 2) ** 2
+        alpha_bars = alpha_bars / alpha_bars[0]
+        betas = 1 - (alpha_bars[1:] / alpha_bars[:-1])
+        return jnp.clip(betas, 0, 0.999)
+    
+    @classmethod
+    def _sigmoid_beta_schedule(cls, T: int, start=-3, end=3, tau=1.0, clamp_min=1e-5):
+        """
+        sigmoid schedule
+        proposed in https://arxiv.org/abs/2212.11972 - Figure 8
+        better for images > 64x64, when used during training
+        """
+        steps = T + 1
+        t = jnp.linspace(0, T, steps, dtype=jnp.float32) / T
+        v_start = jnp.sigmoid(start / tau)
+        v_end = jnp.sigmoid(end / tau)
+        s_t = jnp.sigmoid(((t * (end - start) + start) / tau))
+        alpha_bars = (-(s_t) + v_end) / (v_end - v_start)
+        alpha_bars = alpha_bars / alpha_bars[0]
+        betas = 1.0 - (alpha_bars[1:] / alpha_bars[:-1])
+        return jnp.clip(betas, clamp_min, 0.999)
 
     @classmethod
-    def _betas(cls, beta_1: float, beta_T: float, T: int):
-        return jnp.linspace(beta_1, beta_T, T, dtype=jnp.float32)
+    def _betas(cls, T, schedule='linear', beta_1=None, beta_T=None, **kwargs):
+        if schedule == 'linear':
+            return cls._linear_schedule(T, beta_1, beta_T)
+        elif schedule == 'cosine':
+            return cls._cosine_schedule(T, **kwargs)
+        elif schedule == 'sigmoid':
+            return cls._sigmoid_beta_schedule(T, **kwargs)
+        else:
+            raise ValueError(f"Unknown schedule: {schedule}. Choose from 'linear', 'cosine', or 'sigmoid'.")
 
     @classmethod
     def _alphas(cls, betas):

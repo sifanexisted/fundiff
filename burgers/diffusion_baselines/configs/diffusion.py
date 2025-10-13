@@ -48,7 +48,7 @@ def get_base_config():
     ddpm.beta_1 = 1e-4
     ddpm.beta_T = 0.02
     ddpm.T = 1000
-
+    ddpm.schedule = 'linear' # options: linear, cosine, sigmoid
 
 
     # Learning rate
