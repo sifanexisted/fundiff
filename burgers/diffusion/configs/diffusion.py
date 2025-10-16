@@ -41,6 +41,7 @@ def get_base_config():
 
     # Dataset
     config.dataset = dataset = ml_collections.ConfigDict()
+    dataset.data_path = "/scratch/sifanw/transformer_as_integrator/burgers/burger_nu_1e-3.mat"
     dataset.downsample_factor = 1
     dataset.batch_size = 128  # Per device
     dataset.num_train_samples = 3600
