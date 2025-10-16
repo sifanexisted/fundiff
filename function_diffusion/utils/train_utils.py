@@ -166,15 +166,20 @@ def create_train_diffusion_step(model, mesh, use_conditioning=False):
     return train_step
 
 
+
 @partial(jit, static_argnums=(3,))
-def get_diffusion_batch(key, z1=None, c=None, use_conditioning=False):
+def get_diffusion_batch(key, z1=None, c=None, use_conditioning=False, deterministic=True):
     keys = random.split(key, 3)
     z0 = random.normal(keys[0], shape=z1.shape)  # (b, 200, 512)
     t = random.uniform(keys[1], (z1.shape[0], 1, 1))
 
-    # z_t = t * z1 + (1. - t) * z0
-    z_t = t * (z1 - z0) + z0
+    z_t = t * z1 + (1. - t) * z0
     target = z1 - z0
+
+    if not deterministic:
+        sigma_max = 0.05
+        noise = random.normal(keys[2], shape=z1.shape)
+        z_t = z_t + sigma_max * (4.0 * t * (1.0 - t)) * noise
 
     if use_conditioning:
         batch = (z_t, t.flatten(), c, target)
@@ -182,6 +187,23 @@ def get_diffusion_batch(key, z1=None, c=None, use_conditioning=False):
         batch = (z_t, t.flatten(), target)
 
     return batch, keys[2]
+
+
+# @partial(jit, static_argnums=(3,))
+# def get_diffusion_batch(key, z1=None, c=None, use_conditioning=False):
+#     keys = random.split(key, 3)
+#     z0 = random.normal(keys[0], shape=z1.shape)  # (b, 200, 512)
+#     t = random.uniform(keys[1], (z1.shape[0], 1, 1))
+#
+#     z_t = t * z1 + (1. - t) * z0
+#     target = z1 - z0
+#
+#     if use_conditioning:
+#         batch = (z_t, t.flatten(), c, target)
+#     else:
+#         batch = (z_t, t.flatten(), target)
+#
+#     return batch, keys[2]
 
 
 def sample_ode(state, z0=None, c=None, num_steps=None, use_conditioning=False):

@@ -123,7 +123,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
             z_u = encoder_step(fae_state.params[0], u_batch)
             z_c = encoder_step(fae_state.params[0], c_batch)
 
-            diffusion_batch, rng_key = get_diffusion_batch(rng_key, z1=z_u, c=z_c, use_conditioning=True)
+            diffusion_batch, rng_key = get_diffusion_batch(rng_key, z1=z_u, c=z_c, use_conditioning=True, deterministic=False)
             state, loss = train_step(state, diffusion_batch)
 
         # Logging
