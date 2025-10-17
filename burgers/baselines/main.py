@@ -11,7 +11,7 @@ FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file(
     "config",
-    "configs/autoencoder.py",
+    "configs/base.py",
     "File path to the training hyperparameter configuration.",
     lock_config=True,
 )
@@ -20,6 +20,7 @@ config_flags.DEFINE_config_file(
 def main(argv):
     if FLAGS.config.mode == "train":
         train.train_and_evaluate(FLAGS.config)
+
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(["config"])

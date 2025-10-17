@@ -11,7 +11,7 @@ FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file(
     "config",
-    "configs/autoencoder.py",
+    "configs/diffusion.py",
     "File path to the training hyperparameter configuration.",
     lock_config=True,
 )

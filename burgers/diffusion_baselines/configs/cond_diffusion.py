@@ -47,9 +47,7 @@ def get_base_config():
     # ddpm
     config.ddpm = ddpm = ml_collections.ConfigDict()
     ddpm.T = 1000
-    ddpm.schedule = 'linear' # options: linear, cosine, sigmoid
-
-
+    ddpm.schedule = 'linear'  # options: linear, cosine, sigmoid
 
     # Learning rate
     config.lr = lr = ml_collections.ConfigDict()
