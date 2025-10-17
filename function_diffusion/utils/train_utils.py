@@ -167,7 +167,7 @@ def create_train_diffusion_step(model, mesh, use_conditioning=False):
 
 
 
-@partial(jit, static_argnums=(3,))
+@partial(jit, static_argnums=(3,4))
 def get_diffusion_batch(key, z1=None, c=None, use_conditioning=False, deterministic=True):
     keys = random.split(key, 3)
     z0 = random.normal(keys[0], shape=z1.shape)  # (b, 200, 512)
