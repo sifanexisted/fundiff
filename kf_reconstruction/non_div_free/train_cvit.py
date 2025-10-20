@@ -56,7 +56,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
     state = multihost_utils.host_local_array_to_global_array(state, mesh, P())
 
     # Create loss and train step functions
-    train_step = create_train_step(encoder, decoder, mesh, use_pde=config.training.use_pde)
+    train_step = create_train_step(encoder, decoder, mesh)
 
     # Create dataloaders
     train_dataset, test_dataset = create_dataset(config)
