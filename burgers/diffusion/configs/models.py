@@ -62,7 +62,7 @@ def get_cvit_config():
 
     config.encoder = encoder = ml_collections.ConfigDict()
 
-    encoder.patch_size = 16
+    encoder.patch_size = (16, 16)
     encoder.grid_size = (256, 256)
     encoder.emb_dim = 256
     encoder.depth = 8
