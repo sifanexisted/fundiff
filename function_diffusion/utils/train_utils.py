@@ -60,8 +60,6 @@ class PatchHandler:
         return x
 
 
-
-
 def create_encoder_step(encoder, mesh):
     @jax.jit
     @partial(

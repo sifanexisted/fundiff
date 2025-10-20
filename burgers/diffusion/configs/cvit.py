@@ -60,7 +60,7 @@ def get_base_config():
     training.max_steps = 1 * 10**5
     training.num_queries = 4096
     # training.random_resolution = True
-    # training.use_pde = False
+    training.use_pde = False
 
     # Logging
     config.logging = logging = ml_collections.ConfigDict()

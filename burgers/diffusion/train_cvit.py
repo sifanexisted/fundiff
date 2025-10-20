@@ -13,7 +13,7 @@ from jax.sharding import Mesh, PartitionSpec as P
 
 from flax.training import train_state
 
-from function_diffusion.models.cvit import CViT
+from function_diffusion.models.cvit import Encoder, Decoder
 
 from function_diffusion.utils.model_utils import (
     create_optimizer,
@@ -30,24 +30,18 @@ from function_diffusion.utils.data_utils import create_dataloader, BatchParser
 from burgers.data_utils import create_dataset
 from model_utils import create_train_step, create_encoder_step, create_decoder_step, create_eval_step
 
-def create_state(config, model, tx):
-    x = jnp.ones(config.x_dim)
-    coords = jnp.ones(config.coords_dim)
 
-    params = model.init(random.PRNGKey(config.seed), x=x, coords=coords)
-
-    state = train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
-    return state
 
 
 def train_and_evaluate(config: ml_collections.ConfigDict):
     # Initialize model
-    model = CViT(**config.model)
+    encoder = Encoder(**config.model.encoder)
+    decoder = Decoder(**config.model.decoder)
     # Create learning rate schedule and optimizer
     lr, tx = create_optimizer(config)
 
     # Create train state
-    state = create_autoencoder_state(config, model, tx)
+    state = create_autoencoder_state(config, encoder, decoder, tx)
     num_params = compute_total_params(state)
     print(f"Model storage cost: {num_params * 4 / 1024 / 1024:.2f} MB of parameters")
 

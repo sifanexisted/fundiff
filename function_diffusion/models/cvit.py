@@ -159,7 +159,6 @@ class Encoder(nn.Module):
     patch_size: int
     grid_size: Tuple
     emb_dim: int
-    num_latents: int
     depth: int
     num_heads: int
     mlp_ratio: int
