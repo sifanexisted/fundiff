@@ -68,7 +68,7 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
     batch_parser = BatchParser(config, h, w)
 
     # Create checkpoint manager
-    job_name = f"{config.model.model_name}_use_pde_{config.training.use_pde}"
+    job_name = f"{config.model.model_name}"
     ckpt_path = os.path.join(os.getcwd(), job_name, "ckpt")
     if jax.process_index() == 0:
         if not os.path.isdir(ckpt_path):
