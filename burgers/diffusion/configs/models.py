@@ -60,22 +60,26 @@ def get_cvit_config():
     config = ml_collections.ConfigDict()
     config.model_name = "CViT"
 
-    config.encoder.patch_size = 16
-    config.encoder.grid_size = (256, 256)
-    config.encoder.emb_dim = 256
-    config.encoder.depth = 8
-    config.encoder.num_heads = 8
-    config.encoder.mlp_ratio = 2
-    config.encoder.layer_norm_eps = 1e-5
+    config.encoder = encoder = ml_collections.ConfigDict()
 
-    config.decoder.period = None
-    config.decoder.fourier_freq = 1.0
-    config.decoder.dec_emb_dim = 256
-    config.decoder.dec_depth = 4
-    config.decoder.mlp_ratio = 2
-    config.decoder.dec_num_heads = 8
-    config.decoder.num_mlp_layers = 2
-    config.decoder.out_dim = 1
+    encoder.patch_size = 16
+    encoder.grid_size = (256, 256)
+    encoder.emb_dim = 256
+    encoder.depth = 8
+    encoder.num_heads = 8
+    encoder.mlp_ratio = 2
+    encoder.layer_norm_eps = 1e-5
+
+    config.decoder = decoder = ml_collections.ConfigDict()
+
+    decoder.period = None
+    decoder.fourier_freq = 1.0
+    decoder.dec_emb_dim = 256
+    decoder.dec_depth = 4
+    decoder.mlp_ratio = 2
+    decoder.dec_num_heads = 8
+    decoder.num_mlp_layers = 2
+    decoder.out_dim = 1
 
     return config
 
