@@ -65,10 +65,6 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
                                      num_workers=config.dataset.num_workers)
 
     # Create batch parser
-    sample_batch = next(iter(train_loader))
-    sample_batch = jax.tree.map(jnp.array, sample_batch)
-    b, h, w, c = sample_batch.shape
-    sample_batch = jax.image.resize(sample_batch, (b, 256, 256, c), method='bilinear')
     batch_parser = BatchParser(config, 256, 256)
 
     # Create checkpoint manager
