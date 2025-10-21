@@ -66,8 +66,10 @@ def train_and_evaluate(config: ml_collections.ConfigDict):
 
     # Create batch parser
     sample_batch = next(iter(train_loader))
+    sample_batch = jax.tree.map(jnp.array, sample_batch)
     b, h, w, c = sample_batch.shape
-    batch_parser = BatchParser(config, h, w)
+    sample_batch = jax.image.resize(sample_batch, (b, 256, 256, c), method='bilinear')
+    batch_parser = BatchParser(config, 256, 256)
 
     # Create checkpoint manager
     job_name = f"{config.model.model_name}_use_pde_{config.training.use_pde}"
