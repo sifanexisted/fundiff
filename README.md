@@ -115,7 +115,7 @@ FunDiff/
 
 ## Citation
 
-If you use FunDiff in your research, please cite:
+If you use **FunDiff** in your research, please cite:
 
 ```bibtex
 @article{wang2025fundiff,
@@ -125,4 +125,15 @@ If you use FunDiff in your research, please cite:
   year={2025}
 }
 ```
+
+We also provide an extension of this framework to complex geometries. See [GeoFunflow](https://arxiv.org/abs/2509.24117),
+```bibtex
+@article{wang2025geofunflow,
+  title={GeoFunFlow: Geometric Function Flow Matching for Inverse Operator Learning over Complex Geometries},
+  author={Wang, Sifan and Wu, Zhikai and van Dijk, David and Lu, Lu},
+  journal={arXiv preprint arXiv:2509.24117},
+  year={2025}
+}
+```
+
 
