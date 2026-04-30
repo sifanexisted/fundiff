@@ -1,6 +1,6 @@
 # FunDiff: Diffusion Models over Function Spaces for Physics-Informed Generative Modeling
 
-**Authors:** Sifan Wang*, Zehao Dou*, Tongrui Liu, Lu Lu  
+**Authors:** Sifan Wang*, Zehao Dou*, Siming Shan, Tongrui Liu, Lu Lu  
 *Equal contribution  
 
 **Affiliation:** Yale University
